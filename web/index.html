@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ListingAI — AI Shopify Listings</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">ListingAI</div>
+      <div class="badge" id="planBadge">Free</div>
+    </header>
+
+    <section class="hero">
+      <h1>Product → Shopify listing in 60 seconds</h1>
+      <p>3 AI variations · SEO · FAQ · image · publish. Better than $15 apps — from <strong>$9/mo</strong>.</p>
+      <p class="usage" id="usageLine">Loading…</p>
+    </section>
+
+    <section class="card">
+      <label>Product hint / URL / title</label>
+      <textarea id="productHint" rows="3" placeholder="e.g. Wireless earbuds with ANC, black, USB-C case, $29.99"></textarea>
+
+      <label>Image URL (optional — AI reads it + attaches on publish)</label>
+      <input id="imageUrl" type="url" placeholder="https://…/product.jpg" />
+
+      <div class="row3">
+        <div>
+          <label>Tone</label>
+          <select id="tone">
+            <option value="professional">Professional</option>
+            <option value="casual">Casual</option>
+            <option value="luxury">Luxury</option>
+            <option value="urgent">Urgent / deal</option>
+          </select>
+        </div>
+        <div>
+          <label>Language</label>
+          <select id="language">
+            <option value="English">English</option>
+            <option value="Spanish">Spanish</option>
+            <option value="French">French</option>
+            <option value="German">German</option>
+          </select>
+        </div>
+        <div>
+          <label>Price USD</label>
+          <input id="price" type="text" placeholder="29.99" />
+        </div>
+      </div>
+
+      <label>Niche (optional)</label>
+      <input id="niche" type="text" placeholder="Fitness, Beauty, Gadgets…" />
+
+      <div class="actions">
+        <button type="button" class="btn primary" id="btnGenerate">Generate 3 listings</button>
+        <button type="button" class="btn" id="btnPublish" disabled>Publish selected</button>
+      </div>
+      <p class="err" id="error"></p>
+    </section>
+
+    <section class="card hidden" id="variationsCard">
+      <h2>Pick a variation</h2>
+      <div class="tabs" id="varTabs"></div>
+      <label>Title</label>
+      <input id="outTitle" type="text" />
+      <label>Tags</label>
+      <input id="outTags" type="text" />
+      <label>SEO title</label>
+      <input id="outSeoTitle" type="text" />
+      <label>SEO description</label>
+      <input id="outSeoDesc" type="text" />
+      <label>Image alt</label>
+      <input id="outAlt" type="text" />
+      <label>Description + FAQ (HTML)</label>
+      <textarea id="outBody" rows="12"></textarea>
+    </section>
+
+    <section class="card">
+      <h2>Bulk mode (up to 20 lines)</h2>
+      <p class="muted">One product hint per line. Uses free credits.</p>
+      <textarea id="bulkLines" rows="5" placeholder="Red hiking backpack 40L&#10;Stainless steel water bottle 32oz&#10;Yoga mat non-slip purple"></textarea>
+      <div class="actions">
+        <button type="button" class="btn" id="btnBulk">Run bulk generate</button>
+      </div>
+      <pre class="bulkOut" id="bulkOut"></pre>
+    </section>
+
+    <section class="card upgrade hidden" id="upgradeCard">
+      <h2>Upgrade to Pro — $9/mo</h2>
+      <p>Unlimited AI listings · 7-day trial · cancel anytime</p>
+      <button type="button" class="btn primary" id="btnUpgrade">Start $9/mo plan</button>
+    </section>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

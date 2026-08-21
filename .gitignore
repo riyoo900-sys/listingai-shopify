@@ -1,0 +1,6 @@
+node_modules/
+.env
+data/*.json
+.DS_Store
+shopify.app.*.toml
+!shopify.app.toml

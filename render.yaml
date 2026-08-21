@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: listingai
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: SHOPIFY_API_KEY
+        sync: false
+      - key: SHOPIFY_API_SECRET
+        sync: false
+      - key: SHOPIFY_APP_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: deepseek/deepseek-chat
+      - key: LISTINGAI_PRICE_USD
+        value: "9"
+      - key: LISTINGAI_FREE_LISTINGS
+        value: "15"
+      - key: LISTINGAI_PLAN_NAME
+        value: ListingAI Pro
+      - key: SHOPIFY_BILLING_TEST
+        value: "false"
+      - key: SHOPIFY_API_SCOPES
+        value: read_products,write_products
