@@ -5,14 +5,31 @@ import { restResources } from "@shopify/shopify-api/rest/admin/2025-01";
 const hostName = new URL(process.env.SHOPIFY_APP_URL || "http://localhost:3000")
   .host;
 
+// Placeholders keep boot alive on Render if env vars are missing;
+// auth/API routes still need real keys from the Environment tab.
+const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "missing-api-key";
+const apiSecretKey =
+  process.env.SHOPIFY_API_SECRET?.trim() || "missing-api-secret";
+
+if (
+  apiKey === "missing-api-key" ||
+  apiSecretKey === "missing-api-secret"
+) {
+  console.error(
+    "⚠️  Set SHOPIFY_API_KEY and SHOPIFY_API_SECRET in Render → Environment"
+  );
+}
+
 export const shopify = shopifyApi({
-  apiKey: process.env.SHOPIFY_API_KEY,
-  apiSecretKey: process.env.SHOPIFY_API_SECRET,
+  apiKey,
+  apiSecretKey,
   scopes: (process.env.SHOPIFY_API_SCOPES || "read_products,write_products")
     .split(",")
     .map((s) => s.trim()),
   hostName,
-  hostScheme: process.env.SHOPIFY_APP_URL?.startsWith("https") ? "https" : "http",
+  hostScheme: process.env.SHOPIFY_APP_URL?.startsWith("https")
+    ? "https"
+    : "http",
   apiVersion: LATEST_API_VERSION,
   isEmbeddedApp: true,
   restResources,
