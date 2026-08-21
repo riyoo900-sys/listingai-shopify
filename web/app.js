@@ -173,7 +173,12 @@ async function loadMe() {
     els.usageLine.textContent = e.message;
     if (/not installed/i.test(e.message)) {
       els.usageLine.textContent = "Reconnecting store…";
-      location.href = `/auth?shop=${encodeURIComponent(shop)}`;
+      const authUrl = `${location.origin}/auth?shop=${encodeURIComponent(shop)}`;
+      if (window.top && window.top !== window) {
+        window.top.location.href = authUrl;
+      } else {
+        location.href = authUrl;
+      }
     }
   }
 }

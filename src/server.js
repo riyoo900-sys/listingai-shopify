@@ -30,6 +30,21 @@ const PRICE_USD = Number(process.env.LISTINGAI_PRICE_USD || 7.99);
 
 app.use(compression());
 app.use(express.json({ limit: "4mb" }));
+app.use((req, res, next) => {
+  const shop = String(req.query.shop || "")
+    .replace(/[^a-zA-Z0-9.-]/g, "")
+    .slice(0, 80);
+  const ancestors = [
+    "https://admin.shopify.com",
+    "https://*.myshopify.com",
+    shop ? `https://${shop}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  res.setHeader("Content-Security-Policy", `frame-ancestors ${ancestors}`);
+  res.removeHeader("X-Frame-Options");
+  next();
+});
 app.use(express.static(path.join(__dirname, "..", "web")));
 
 function requireEnv() {
