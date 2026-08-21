@@ -170,6 +170,11 @@ async function loadMe() {
     await loadProducts();
   } catch (e) {
     els.error.textContent = e.message;
+    els.usageLine.textContent = e.message;
+    if (/not installed/i.test(e.message)) {
+      els.usageLine.textContent = "Reconnecting store…";
+      location.href = `/auth?shop=${encodeURIComponent(shop)}`;
+    }
   }
 }
 
