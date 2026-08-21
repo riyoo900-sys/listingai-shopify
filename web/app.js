@@ -1,10 +1,13 @@
 const params = new URLSearchParams(location.search);
 const shop = params.get("shop") || "";
+const PRICE = 7.99;
 
 const els = {
   usageLine: document.getElementById("usageLine"),
   planBadge: document.getElementById("planBadge"),
+  productSelect: document.getElementById("productSelect"),
   productHint: document.getElementById("productHint"),
+  brandVoice: document.getElementById("brandVoice"),
   imageUrl: document.getElementById("imageUrl"),
   niche: document.getElementById("niche"),
   price: document.getElementById("price"),
@@ -30,9 +33,27 @@ const els = {
 
 let variations = [];
 let selected = 0;
+let activeProductId = null;
+
+try {
+  const saved = localStorage.getItem("listingai_brand_voice");
+  if (saved) els.brandVoice.value = saved;
+} catch {
+  /* ignore */
+}
+
+els.brandVoice.addEventListener("change", () => {
+  try {
+    localStorage.setItem("listingai_brand_voice", els.brandVoice.value.trim());
+  } catch {
+    /* ignore */
+  }
+});
 
 async function api(path, opts = {}) {
-  const url = path.includes("?") ? path : `${path}?shop=${encodeURIComponent(shop)}`;
+  const url = path.includes("?")
+    ? path
+    : `${path}?shop=${encodeURIComponent(shop)}`;
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
     ...opts,
@@ -52,11 +73,16 @@ function fillVariation(i) {
   els.outSeoTitle.value = v.metafields_global_title_tag || "";
   els.outSeoDesc.value = v.metafields_global_description_tag || "";
   els.outAlt.value = v.image_alt || "";
-  els.outBody.value = [v.body_html || "", v.faq_html || ""].filter(Boolean).join("\n\n");
+  els.outBody.value = [v.body_html || "", v.faq_html || ""]
+    .filter(Boolean)
+    .join("\n\n");
   [...els.varTabs.querySelectorAll(".tab")].forEach((t, idx) => {
     t.classList.toggle("active", idx === i);
   });
   els.btnPublish.disabled = false;
+  els.btnPublish.textContent = activeProductId
+    ? "Apply to product"
+    : "Publish as new product";
 }
 
 function showVariations(list) {
@@ -76,15 +102,16 @@ function showVariations(list) {
 
 function updateUsage(usage) {
   if (!usage) return;
+  const price = usage.price_usd || PRICE;
   if (usage.plan === "pro") {
     els.planBadge.textContent = "Pro";
-    els.usageLine.textContent = "Unlimited listings · Pro $9/mo active";
+    els.usageLine.textContent = `Unlimited listings · Pro $${price}/mo active`;
     els.upgradeCard.classList.add("hidden");
     return;
   }
   els.planBadge.textContent = "Free";
   const left = usage.remaining ?? 0;
-  els.usageLine.textContent = `${left} free listings left (of ${usage.free_limit}) · then $9/mo`;
+  els.usageLine.textContent = `${left} free listings left (of ${usage.free_limit}) · then $${price}/mo`;
   if (left <= 0) els.upgradeCard.classList.remove("hidden");
 }
 
@@ -100,6 +127,38 @@ function currentListing() {
   };
 }
 
+async function loadProducts() {
+  if (!shop) return;
+  try {
+    const data = await api("/api/products");
+    const keep = els.productSelect.options[0];
+    els.productSelect.innerHTML = "";
+    els.productSelect.appendChild(keep);
+    (data.products || []).forEach((p) => {
+      const opt = document.createElement("option");
+      opt.value = String(p.id);
+      opt.textContent = p.title + (p.price ? ` · $${p.price}` : "");
+      opt.dataset.image = p.image || "";
+      opt.dataset.price = p.price || "";
+      els.productSelect.appendChild(opt);
+    });
+  } catch (e) {
+    console.warn("products", e);
+  }
+}
+
+els.productSelect.addEventListener("change", () => {
+  const opt = els.productSelect.selectedOptions[0];
+  activeProductId = els.productSelect.value || null;
+  if (opt?.dataset?.image) els.imageUrl.value = opt.dataset.image;
+  if (opt?.dataset?.price) els.price.value = opt.dataset.price;
+  if (activeProductId) {
+    els.btnPublish.textContent = "Apply to product";
+  } else {
+    els.btnPublish.textContent = "Publish as new product";
+  }
+});
+
 async function loadMe() {
   if (!shop) {
     els.usageLine.textContent = "Open from Shopify Admin → Apps → YAMSHI";
@@ -108,6 +167,7 @@ async function loadMe() {
   try {
     const data = await api("/api/me");
     updateUsage(data.usage);
+    await loadProducts();
   } catch (e) {
     els.error.textContent = e.message;
   }
@@ -117,17 +177,22 @@ els.btnGenerate.addEventListener("click", async () => {
   els.error.textContent = "";
   els.btnGenerate.disabled = true;
   try {
+    const productId = els.productSelect.value || null;
+    activeProductId = productId;
     const data = await api("/api/generate", {
       method: "POST",
       body: {
+        productId,
         productHint: els.productHint.value,
         niche: els.niche.value,
         price: els.price.value,
         tone: els.tone.value,
         language: els.language.value,
         imageUrl: els.imageUrl.value,
+        brandVoice: els.brandVoice.value,
       },
     });
+    if (data.productId) activeProductId = String(data.productId);
     showVariations(data.variations || [data.listing].filter(Boolean));
     updateUsage(data.usage);
   } catch (e) {
@@ -142,16 +207,19 @@ els.btnPublish.addEventListener("click", async () => {
   els.error.textContent = "";
   els.btnPublish.disabled = true;
   try {
-    await api("/api/publish", {
+    const data = await api("/api/publish", {
       method: "POST",
       body: {
         listing: currentListing(),
         price: els.price.value || "19.99",
         imageUrl: els.imageUrl.value,
+        productId: activeProductId || els.productSelect.value || null,
       },
     });
     els.error.style.color = "#3dd68c";
-    els.error.textContent = "Published to Shopify ✓ — check Products";
+    els.error.textContent = data.updated
+      ? "Product updated ✓ — check Products"
+      : "Published to Shopify ✓ — check Products";
   } catch (e) {
     els.error.style.color = "#ff7b7b";
     els.error.textContent = e.message;
@@ -169,6 +237,7 @@ els.btnBulk.addEventListener("click", async () => {
         lines: els.bulkLines.value,
         tone: els.tone.value,
         language: els.language.value,
+        brandVoice: els.brandVoice.value,
       },
     });
     els.bulkOut.textContent = JSON.stringify(data.results, null, 2);

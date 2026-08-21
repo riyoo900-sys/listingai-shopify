@@ -1,9 +1,9 @@
 {
   "name": "listingai-shopify",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
-  "description": "ListingAI — AI Shopify product listings (Accio-style)",
+  "description": "ListingAI SEO — AI Shopify product listings + SEO under $8/mo",
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",

@@ -1,64 +1,50 @@
-# ListingAI — Shopify App Store submission pack
+# ListingAI SEO — App Store listing (money path)
 
-## App identity
-- **Name:** ListingAI (Partner app: YAMSHI)
-- **Tagline:** Product → Shopify listing in 60 seconds
-- **Category:** Content / SEO
-- **Price:** Free (15 listings) → **$9/month** Pro unlimited · 7-day trial
+## Positioning
+**Name:** ListingAI SEO  
+**Tagline:** SEO product listings for Google + AI search — from $7.99/mo  
+**Category:** Content / SEO  
+**Price:** Free (25 listings) → **$7.99/month** Pro · 7-day trial
 
-## App Store listing copy (EN)
+## Why merchants pay
+- Pick existing products → rewrite SEO title, meta, description, tags, FAQ, alt
+- 3 variations per run · Apply updates the same product
+- Bulk up to 50 lines
+- Brand voice
+- Cheaper than Describly ($12.90+) and Avada ($14.90+)
 
-### Short description
-Generate SEO-ready Shopify product titles, descriptions, tags, FAQs and image alt text with AI. 3 variations per run. Publish in one click. From $9/mo.
+## Short description
+Rewrite Shopify products into SEO-ready listings with AI. 3 variations, meta tags, FAQ, alt text. Update existing products in one click. Free 25 · then $7.99/mo.
 
-### Full description
-ListingAI helps Shopify merchants create high-converting product listings in seconds.
+## Full description
+ListingAI SEO helps merchants create high-converting, search-ready product copy fast.
 
 **What you get**
-- 3 AI variations per product (pick the best)
-- SEO title + meta description + tags
-- FAQ block + image alt text
-- Optional image URL (AI reads it + attaches on publish)
-- Tone: Professional / Casual / Luxury / Urgent
-- Languages: English, Spanish, French, German
-- Bulk mode (up to 20 products)
-- One-click publish to Shopify
+- Select any product from your catalog and rewrite it with AI
+- 3 SEO variations (benefit / feature / urgency)
+- SEO title + meta description + tags + image alt + FAQ (AEO-friendly)
+- Brand voice rules
+- Bulk generate (up to 50)
+- One-click apply to the same product or publish new
 
 **Pricing**
-- Free: 15 AI listings
-- Pro: $9/month unlimited · 7-day trial
+- Free: 25 AI listings
+- Pro: $7.99/month unlimited · 7-day trial
 
-Built for dropshippers and catalogs that need speed without hiring a copywriter.
+Built for US catalogs and dropshippers who need speed without a copywriter.
 
-### Keywords
-ai product description, shopify listing, seo product copy, bulk descriptions, chatgpt shopify, product title generator
+## URLs (production)
+- App: `https://listingai-shopify.onrender.com`
+- Redirect: `https://listingai-shopify.onrender.com/auth/callback`
+- Privacy: `https://listingai-shopify.onrender.com/privacy`
+- Support: `https://listingai-shopify.onrender.com/support`
 
-## Required URLs (after production host)
-- App URL: `https://YOUR_DOMAIN`
-- Redirect: `https://YOUR_DOMAIN/auth/callback`
-- Privacy: `https://YOUR_DOMAIN/privacy`
-- Support: `https://YOUR_DOMAIN/support`
+## Screenshots needed
+1. Product picker + generate
+2. 3 variation tabs with SEO fields
+3. Product updated in Shopify Admin
 
-## Screenshots to capture (3+)
-1. Generate form with tone/language/image URL
-2. 3 variation tabs + preview
-3. Published product in Shopify admin
-
-## Review notes for Shopify
-- Scopes: `read_products,write_products`
-- GDPR webhooks implemented
-- Embedded admin app
-- Test store: listingai-dev.myshopify.com
-
-## Status
-- [x] App built (v2)
-- [x] Privacy + Support pages
-- [x] Billing $9/mo
-- [x] Docker + Render blueprint (`render.yaml`, `Dockerfile`)
-- [x] Publish guide (`PUBLISH-NOW.md`)
-- [ ] Stable production host URL (user creates Render)
-- [ ] Screenshots uploaded
-- [ ] Submit for Shopify review (Partner dashboard → Distribution)
-
-## Honest note
-Shopify App Store review takes **days** and needs a **fixed HTTPS domain**. Cloudflare quick tunnels are for local testing only.
+## After go-live (required to earn)
+1. Submit App Store listing
+2. Ads: Facebook/TikTok — "$7.99 AI Shopify SEO listings. 25 free."
+3. Ask every happy store for a review

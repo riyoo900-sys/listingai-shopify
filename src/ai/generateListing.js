@@ -1,15 +1,16 @@
-const SYSTEM = `You are an expert Shopify copywriter and SEO specialist for US e-commerce.
+const SYSTEM = `You are an expert Shopify copywriter and SEO + AEO specialist for US e-commerce.
+Optimize for Google shopping/search AND for AI assistants (ChatGPT, Perplexity) that recommend products.
 Return ONLY valid JSON with this shape:
 {
   "variations": [
     {
-      "title": "max 70 chars",
-      "description_html": "HTML with 2-3 short paragraphs + ul/li bullets",
+      "title": "max 70 chars, keyword-rich",
+      "description_html": "HTML with 2-3 short paragraphs + ul/li bullets (benefits first)",
       "tags": ["tag1","tag2"],
       "seo_title": "max 60 chars",
-      "seo_description": "max 155 chars",
-      "faq_html": "<h3>Q</h3><p>A</p> x2-3",
-      "image_alt": "short alt text for product image"
+      "seo_description": "max 155 chars with primary keyword + CTA",
+      "faq_html": "<h3>Q</h3><p>A</p> x2-3 (natural Q&A for AI search)",
+      "image_alt": "short descriptive alt text"
     }
   ]
 }
@@ -24,6 +25,7 @@ Tone: clear, persuasive. No markdown fences.`;
  *   tone?: string,
  *   language?: string,
  *   imageUrl?: string,
+ *   brandVoice?: string,
  * }} input
  */
 export async function generateListing(input) {
@@ -46,7 +48,12 @@ export async function generateListing(input) {
     input.productHint,
     input.niche ? `Niche: ${input.niche}` : "",
     input.price ? `Price: $${input.price}` : "",
-    input.imageUrl ? `Product image URL (use for visual accuracy): ${input.imageUrl}` : "",
+    input.brandVoice
+      ? `Brand voice / style rules (follow strictly): ${input.brandVoice}`
+      : "",
+    input.imageUrl
+      ? `Product image URL (use for visual accuracy): ${input.imageUrl}`
+      : "",
   ].filter(Boolean);
 
   const messages = [

@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 import {
   shopify,
   sessionFromShop,
+  shopifyRest,
   shopifyRestPost,
+  shopifyRestPut,
   createRecurringCharge,
   activateCharge,
   getActiveCharge,
@@ -23,7 +25,8 @@ import { generateListing } from "./ai/generateListing.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
-const FREE_LIMIT = Number(process.env.LISTINGAI_FREE_LISTINGS || 15);
+const FREE_LIMIT = Number(process.env.LISTINGAI_FREE_LISTINGS || 25);
+const PRICE_USD = Number(process.env.LISTINGAI_PRICE_USD || 7.99);
 
 app.use(compression());
 app.use(express.json({ limit: "4mb" }));
@@ -62,12 +65,17 @@ function usagePayload(row) {
     free_limit: FREE_LIMIT,
     remaining:
       row.plan === "pro" ? null : Math.max(0, FREE_LIMIT - row.listings_used),
-    price_usd: Number(process.env.LISTINGAI_PRICE_USD || 9),
+    price_usd: PRICE_USD,
   };
 }
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, app: "ListingAI", version: "2.0.0" });
+  res.json({
+    ok: true,
+    app: "ListingAI SEO",
+    version: "3.0.0",
+    price_usd: PRICE_USD,
+  });
 });
 
 app.get("/privacy", (_req, res) => {
@@ -137,6 +145,36 @@ app.get("/api/me", async (req, res) => {
   });
 });
 
+app.get("/api/products", async (req, res) => {
+  try {
+    const shop = normalizeShop(req.query.shop);
+    const row = getShop(shop);
+    if (!row) return res.status(401).json({ error: "Not installed" });
+    const session = sessionFromShop(shop, row.access_token);
+    const body = await shopifyRest(session, "products", {
+      query: { limit: 50, fields: "id,title,body_html,tags,vendor,product_type,variants,image,images" },
+    });
+    const products = (body.products || []).map((p) => ({
+      id: p.id,
+      title: p.title,
+      tags: p.tags || "",
+      vendor: p.vendor || "",
+      product_type: p.product_type || "",
+      price: p.variants?.[0]?.price || "",
+      image: p.image?.src || p.images?.[0]?.src || "",
+      body_preview: String(p.body_html || "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 280),
+    }));
+    res.json({ products });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message || "Failed to load products" });
+  }
+});
+
 app.post("/api/generate", async (req, res) => {
   try {
     const shop = normalizeShop(req.body.shop || req.query.shop);
@@ -150,9 +188,43 @@ app.post("/api/generate", async (req, res) => {
       });
     }
 
-    const { productHint, niche, price, tone, language, imageUrl } = req.body;
+    let {
+      productHint,
+      niche,
+      price,
+      tone,
+      language,
+      imageUrl,
+      brandVoice,
+      productId,
+    } = req.body;
+
+    if (productId) {
+      const session = sessionFromShop(shop, row.access_token);
+      const body = await shopifyRest(session, `products/${productId}`);
+      const p = body.product;
+      if (!p) return res.status(404).json({ error: "Product not found" });
+      const img = p.image?.src || p.images?.[0]?.src || "";
+      const plain = String(p.body_html || "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      productHint = [
+        `Title: ${p.title}`,
+        p.product_type ? `Type: ${p.product_type}` : "",
+        p.vendor ? `Vendor: ${p.vendor}` : "",
+        p.tags ? `Tags: ${p.tags}` : "",
+        p.variants?.[0]?.price ? `Price: $${p.variants[0].price}` : "",
+        plain ? `Current description: ${plain.slice(0, 800)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      if (!imageUrl) imageUrl = img;
+      if (!price) price = p.variants?.[0]?.price || price;
+    }
+
     if (!productHint?.trim()) {
-      return res.status(400).json({ error: "productHint required" });
+      return res.status(400).json({ error: "productHint or productId required" });
     }
 
     const result = await generateListing({
@@ -162,11 +234,13 @@ app.post("/api/generate", async (req, res) => {
       tone,
       language,
       imageUrl: imageUrl?.trim() || "",
+      brandVoice: brandVoice?.trim() || "",
     });
     incrementListingUsage(shop);
     res.json({
       variations: result.variations,
       listing: result.listing,
+      productId: productId || null,
       usage: usagePayload(getShop(shop)),
     });
   } catch (e) {
@@ -181,13 +255,40 @@ app.post("/api/publish", async (req, res) => {
     const row = getShop(shop);
     if (!row) return res.status(401).json({ error: "Not installed" });
 
-    const { listing, vendor, product_type, price, imageUrl } = req.body;
-    if (!listing?.title) return res.status(400).json({ error: "listing.title required" });
+    const { listing, vendor, product_type, price, imageUrl, productId } =
+      req.body;
+    if (!listing?.title)
+      return res.status(400).json({ error: "listing.title required" });
 
     const session = sessionFromShop(shop, row.access_token);
     const bodyHtml = [listing.body_html || "", listing.faq_html || ""]
       .filter(Boolean)
       .join("\n");
+
+    if (productId) {
+      const payload = {
+        product: {
+          id: Number(productId),
+          title: listing.title,
+          body_html: bodyHtml,
+          tags: listing.tags || "",
+          metafields_global_title_tag: listing.metafields_global_title_tag,
+          metafields_global_description_tag:
+            listing.metafields_global_description_tag,
+        },
+      };
+      const updated = await shopifyRestPut(
+        session,
+        `products/${productId}`,
+        payload
+      );
+      logPublished(shop, String(productId), "update");
+      return res.json({
+        product: updated.product,
+        updated: true,
+        usage: usagePayload(getShop(shop)),
+      });
+    }
 
     const product = {
       product: {
@@ -197,7 +298,8 @@ app.post("/api/publish", async (req, res) => {
         vendor: vendor || "ListingAI",
         product_type: product_type || "",
         metafields_global_title_tag: listing.metafields_global_title_tag,
-        metafields_global_description_tag: listing.metafields_global_description_tag,
+        metafields_global_description_tag:
+          listing.metafields_global_description_tag,
         variants: [
           {
             price: String(price || "19.99"),
@@ -229,7 +331,7 @@ app.post("/api/bulk", async (req, res) => {
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter(Boolean)
-      .slice(0, 20);
+      .slice(0, 50);
 
     if (!lines.length) return res.status(400).json({ error: "lines required" });
 
@@ -244,9 +346,14 @@ app.post("/api/bulk", async (req, res) => {
           productHint: line,
           tone: req.body.tone,
           language: req.body.language,
+          brandVoice: req.body.brandVoice,
         });
         incrementListingUsage(shop);
-        results.push({ input: line, listing: result.listing, variations: result.variations });
+        results.push({
+          input: line,
+          listing: result.listing,
+          variations: result.variations,
+        });
       } catch (e) {
         results.push({ input: line, error: e.message });
       }
@@ -301,5 +408,7 @@ app.post("/webhooks/app/uninstalled", (req, res) => {
 
 requireEnv();
 app.listen(PORT, process.env.HOST || "0.0.0.0", () => {
-  console.log(`ListingAI v2 → ${process.env.SHOPIFY_APP_URL || `http://localhost:${PORT}`}`);
+  console.log(
+    `ListingAI SEO v3 → ${process.env.SHOPIFY_APP_URL || `http://localhost:${PORT}`} · $${PRICE_USD}/mo`
+  );
 });

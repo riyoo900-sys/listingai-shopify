@@ -3,28 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ListingAI — AI Shopify Listings</title>
+  <title>ListingAI SEO — AI Shopify Listings</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/app.css" />
 </head>
 <body>
   <div class="wrap">
     <header>
-      <div class="logo">ListingAI</div>
+      <div class="logo">ListingAI SEO</div>
       <div class="badge" id="planBadge">Free</div>
     </header>
 
     <section class="hero">
-      <h1>Product → Shopify listing in 60 seconds</h1>
-      <p>3 AI variations · SEO · FAQ · image · publish. Better than $15 apps — from <strong>$9/mo</strong>.</p>
+      <h1>SEO listings that sell — and show up in AI search</h1>
+      <p>
+        Pick a product → 3 AI variations · SEO title/meta · FAQ · alt text · update in one click.
+        Built for Google + ChatGPT/Perplexity. From <strong>$7.99/mo</strong>.
+      </p>
       <p class="usage" id="usageLine">Loading…</p>
     </section>
 
     <section class="card">
-      <label>Product hint / URL / title</label>
+      <label>Store product (recommended)</label>
+      <select id="productSelect">
+        <option value="">— Write from scratch / or pick a product —</option>
+      </select>
+      <p class="muted">Loads your catalog. Generate rewrites SEO fields, then Apply updates the same product.</p>
+
+      <label>Product hint / URL / title (if not picking above)</label>
       <textarea id="productHint" rows="3" placeholder="e.g. Wireless earbuds with ANC, black, USB-C case, $29.99"></textarea>
 
-      <label>Image URL (optional — AI reads it + attaches on publish)</label>
+      <label>Brand voice (optional — saved in this browser)</label>
+      <input id="brandVoice" type="text" placeholder="e.g. Friendly, US English, no hype words, short sentences" />
+
+      <label>Image URL (optional — AI reads it + attaches on new publish)</label>
       <input id="imageUrl" type="url" placeholder="https://…/product.jpg" />
 
       <div class="row3">
@@ -56,8 +68,8 @@
       <input id="niche" type="text" placeholder="Fitness, Beauty, Gadgets…" />
 
       <div class="actions">
-        <button type="button" class="btn primary" id="btnGenerate">Generate 3 listings</button>
-        <button type="button" class="btn" id="btnPublish" disabled>Publish selected</button>
+        <button type="button" class="btn primary" id="btnGenerate">Generate 3 SEO listings</button>
+        <button type="button" class="btn" id="btnPublish" disabled>Apply / Publish</button>
       </div>
       <p class="err" id="error"></p>
     </section>
@@ -80,7 +92,7 @@
     </section>
 
     <section class="card">
-      <h2>Bulk mode (up to 20 lines)</h2>
+      <h2>Bulk mode (up to 50 lines)</h2>
       <p class="muted">One product hint per line. Uses free credits.</p>
       <textarea id="bulkLines" rows="5" placeholder="Red hiking backpack 40L&#10;Stainless steel water bottle 32oz&#10;Yoga mat non-slip purple"></textarea>
       <div class="actions">
@@ -90,9 +102,9 @@
     </section>
 
     <section class="card upgrade hidden" id="upgradeCard">
-      <h2>Upgrade to Pro — $9/mo</h2>
-      <p>Unlimited AI listings · 7-day trial · cancel anytime</p>
-      <button type="button" class="btn primary" id="btnUpgrade">Start $9/mo plan</button>
+      <h2>Upgrade to Pro — $7.99/mo</h2>
+      <p>Unlimited AI SEO listings · 7-day trial · cancel anytime</p>
+      <button type="button" class="btn primary" id="btnUpgrade">Start $7.99/mo plan</button>
     </section>
   </div>
   <script src="/app.js"></script>

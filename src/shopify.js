@@ -53,9 +53,15 @@ export async function shopifyRestPost(session, path, data) {
   return res.body;
 }
 
+export async function shopifyRestPut(session, path, data) {
+  const client = new shopify.clients.Rest({ session });
+  const res = await client.put({ path, data });
+  return res.body;
+}
+
 export async function createRecurringCharge(session) {
-  const price = Number(process.env.LISTINGAI_PRICE_USD || 9);
-  const planName = process.env.LISTINGAI_PLAN_NAME || "ListingAI Pro";
+  const price = Number(process.env.LISTINGAI_PRICE_USD || 7.99);
+  const planName = process.env.LISTINGAI_PLAN_NAME || "ListingAI SEO Pro";
   const returnUrl = `${process.env.SHOPIFY_APP_URL}/billing/callback?shop=${encodeURIComponent(session.shop)}`;
 
   const client = new shopify.clients.Rest({ session });

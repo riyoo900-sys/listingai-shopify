@@ -24,11 +24,11 @@ services:
       - key: OPENROUTER_MODEL
         value: deepseek/deepseek-chat
       - key: LISTINGAI_PRICE_USD
-        value: "9"
+        value: "7.99"
       - key: LISTINGAI_FREE_LISTINGS
-        value: "15"
+        value: "25"
       - key: LISTINGAI_PLAN_NAME
-        value: ListingAI Pro
+        value: ListingAI SEO Pro
       - key: SHOPIFY_BILLING_TEST
         value: "false"
       - key: SHOPIFY_API_SCOPES
