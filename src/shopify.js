@@ -41,6 +41,45 @@ export function sessionFromShop(shop, accessToken) {
   return session;
 }
 
+async function oauthToken(shop, params) {
+  const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: apiKey,
+      client_secret: apiSecretKey,
+      ...params,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      data.error_description || data.error || `Token HTTP ${res.status}`
+    );
+  }
+  return data;
+}
+
+/** Exchange a non-expiring offline token for an expiring pair. */
+export async function cycleToExpiringToken(shop, offlineToken) {
+  return oauthToken(shop, {
+    grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+    subject_token: offlineToken,
+    subject_token_type:
+      "urn:shopify:params:oauth:token-type:offline-access-token",
+    requested_token_type:
+      "urn:shopify:params:oauth:token-type:offline-access-token",
+    expiring: "1",
+  });
+}
+
+export async function refreshOfflineToken(shop, refreshToken) {
+  return oauthToken(shop, {
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+}
+
 export async function shopifyRest(session, path, options = {}) {
   const client = new shopify.clients.Rest({ session });
   const res = await client.get({ path, ...options });

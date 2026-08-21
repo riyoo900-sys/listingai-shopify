@@ -12,10 +12,13 @@ import {
   createRecurringCharge,
   activateCharge,
   getActiveCharge,
+  cycleToExpiringToken,
+  refreshOfflineToken,
 } from "./shopify.js";
 import {
   getShop,
   upsertShop,
+  saveShopTokens,
   setShopPlan,
   incrementListingUsage,
   logPublished,
@@ -65,6 +68,31 @@ function normalizeShop(raw) {
     .replace(/\/.*$/, "");
   if (!shop.endsWith(".myshopify.com")) shop = `${shop}.myshopify.com`;
   return shop;
+}
+
+async function getValidSession(shop) {
+  let row = getShop(shop);
+  if (!row?.access_token) return null;
+  const soon = Date.now() + 120000;
+  const needsCycle = !row.refresh_token;
+  const needsRefresh =
+    row.refresh_token &&
+    (!row.token_expires_at || new Date(row.token_expires_at).getTime() < soon);
+  try {
+    if (needsCycle) {
+      const tokens = await cycleToExpiringToken(shop, row.access_token);
+      row = saveShopTokens(shop, tokens);
+    } else if (needsRefresh) {
+      const tokens = await refreshOfflineToken(shop, row.refresh_token);
+      row = saveShopTokens(shop, tokens);
+    }
+  } catch (e) {
+    console.error("token cycle/refresh:", e.message);
+    throw new Error(
+      "Shopify session expired. Reinstall via /auth?shop=" + shop
+    );
+  }
+  return sessionFromShop(shop, getShop(shop).access_token);
 }
 
 function canGenerate(row) {
@@ -126,6 +154,15 @@ app.get("/auth/callback", async (req, res) => {
     });
     const { session } = callback;
     upsertShop(session.shop, session.accessToken);
+    try {
+      const tokens = await cycleToExpiringToken(
+        session.shop,
+        session.accessToken
+      );
+      saveShopTokens(session.shop, tokens);
+    } catch (e) {
+      console.error("cycle to expiring token:", e.message);
+    }
     res.redirect(
       `/?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(req.query.host || "")}`
     );
@@ -144,10 +181,11 @@ app.get("/api/me", async (req, res) => {
   const row = getShop(shop);
   if (!row) return res.status(401).json({ error: "Not installed" });
 
-  const session = sessionFromShop(shop, row.access_token);
   let billing = null;
+  let session = null;
   try {
-    billing = await getActiveCharge(session);
+    session = await getValidSession(shop);
+    billing = session ? await getActiveCharge(session) : null;
     if (billing && row.plan !== "pro") setShopPlan(shop, "pro", String(billing.id));
   } catch {
     /* ignore */
@@ -165,7 +203,7 @@ app.get("/api/products", async (req, res) => {
     const shop = normalizeShop(req.query.shop);
     const row = getShop(shop);
     if (!row) return res.status(401).json({ error: "Not installed" });
-    const session = sessionFromShop(shop, row.access_token);
+    const session = await getValidSession(shop);
     const body = await shopifyRest(session, "products", {
       query: { limit: 50, fields: "id,title,body_html,tags,vendor,product_type,variants,image,images" },
     });
@@ -215,7 +253,7 @@ app.post("/api/generate", async (req, res) => {
     } = req.body;
 
     if (productId) {
-      const session = sessionFromShop(shop, row.access_token);
+      const session = await getValidSession(shop);
       const body = await shopifyRest(session, `products/${productId}`);
       const p = body.product;
       if (!p) return res.status(404).json({ error: "Product not found" });
@@ -275,7 +313,7 @@ app.post("/api/publish", async (req, res) => {
     if (!listing?.title)
       return res.status(400).json({ error: "listing.title required" });
 
-    const session = sessionFromShop(shop, row.access_token);
+    const session = await getValidSession(shop);
     const bodyHtml = [listing.body_html || "", listing.faq_html || ""]
       .filter(Boolean)
       .join("\n");
@@ -386,7 +424,7 @@ app.get("/billing/start", async (req, res) => {
     const shop = normalizeShop(req.query.shop);
     const row = getShop(shop);
     if (!row) return res.status(401).send("Not installed");
-    const session = sessionFromShop(shop, row.access_token);
+    const session = await getValidSession(shop);
     const charge = await createRecurringCharge(session);
     setShopPlan(shop, "pending", String(charge.id));
     res.redirect(charge.confirmation_url);
@@ -402,7 +440,7 @@ app.get("/billing/callback", async (req, res) => {
     const chargeId = req.query.charge_id;
     const row = getShop(shop);
     if (!row) return res.status(401).send("Not installed");
-    const session = sessionFromShop(shop, row.access_token);
+    const session = await getValidSession(shop);
     await activateCharge(session, chargeId);
     setShopPlan(shop, "pro", String(chargeId));
     res.redirect(`/?shop=${encodeURIComponent(shop)}&billing=ok`);

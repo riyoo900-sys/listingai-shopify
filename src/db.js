@@ -28,7 +28,7 @@ export function getShop(shop) {
   return data.shops[shop] || null;
 }
 
-export function upsertShop(shop, accessToken) {
+export function upsertShop(shop, accessToken, extra = {}) {
   const data = load();
   const now = new Date().toISOString();
   data.shops[shop] = data.shops[shop] || {
@@ -38,11 +38,26 @@ export function upsertShop(shop, accessToken) {
     charge_id: null,
     installed_at: now,
   };
-  data.shops[shop].access_token = accessToken;
+  if (accessToken) data.shops[shop].access_token = accessToken;
+  if (extra.refresh_token) data.shops[shop].refresh_token = extra.refresh_token;
+  if (extra.token_expires_at)
+    data.shops[shop].token_expires_at = extra.token_expires_at;
+  if (extra.refresh_expires_at)
+    data.shops[shop].refresh_expires_at = extra.refresh_expires_at;
   data.shops[shop].updated_at = now;
   if (!data.shops[shop].installed_at) data.shops[shop].installed_at = now;
   save(data);
   return getShop(shop);
+}
+
+export function saveShopTokens(shop, tokenPayload) {
+  const expiresIn = Number(tokenPayload.expires_in || 3600);
+  const refreshIn = Number(tokenPayload.refresh_token_expires_in || 7776000);
+  return upsertShop(shop, tokenPayload.access_token, {
+    refresh_token: tokenPayload.refresh_token,
+    token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    refresh_expires_at: new Date(Date.now() + refreshIn * 1000).toISOString(),
+  });
 }
 
 export function setShopPlan(shop, plan, chargeId = null) {
