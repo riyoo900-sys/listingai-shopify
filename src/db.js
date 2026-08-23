@@ -93,6 +93,12 @@ export function logPublished(shop, productId, source) {
   save(data);
 }
 
+export function deleteShop(shop) {
+  const data = load();
+  delete data.shops[shop];
+  save(data);
+}
+
 export function shopStats(shop) {
   const row = getShop(shop);
   if (!row) return null;
