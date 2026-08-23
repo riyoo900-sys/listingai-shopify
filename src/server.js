@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import compression from "compression";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -14,6 +15,7 @@ import {
   getActiveCharge,
   cycleToExpiringToken,
   refreshOfflineToken,
+  registerComplianceWebhooks,
 } from "./shopify.js";
 import {
   getShop,
@@ -22,6 +24,7 @@ import {
   setShopPlan,
   incrementListingUsage,
   logPublished,
+  deleteShop,
 } from "./db.js";
 import { generateListing } from "./ai/generateListing.js";
 
@@ -32,7 +35,14 @@ const FREE_LIMIT = Number(process.env.LISTINGAI_FREE_LISTINGS || 25);
 const PRICE_USD = Number(process.env.LISTINGAI_PRICE_USD || 7.99);
 
 app.use(compression());
-app.use(express.json({ limit: "4mb" }));
+app.use(
+  express.json({
+    limit: "4mb",
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use((req, res, next) => {
   const shop = String(req.query.shop || "")
     .replace(/[^a-zA-Z0-9.-]/g, "")
@@ -48,7 +58,9 @@ app.use((req, res, next) => {
   res.removeHeader("X-Frame-Options");
   next();
 });
-app.use(express.static(path.join(__dirname, "..", "web")));
+app.use(
+  express.static(path.join(__dirname, "..", "web"), { index: false })
+);
 
 function requireEnv() {
   const missing = [
@@ -116,7 +128,7 @@ app.get("/health", (_req, res) => {
   res.json({
     ok: true,
     app: "ListingAI SEO",
-    version: "3.0.0",
+    version: "3.0.1",
     price_usd: PRICE_USD,
   });
 });
@@ -163,6 +175,11 @@ app.get("/auth/callback", async (req, res) => {
     } catch (e) {
       console.error("cycle to expiring token:", e.message);
     }
+    try {
+      await registerComplianceWebhooks(session);
+    } catch (e) {
+      console.warn("register webhooks:", e.message);
+    }
     res.redirect(
       `/?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(req.query.host || "")}`
     );
@@ -172,7 +189,18 @@ app.get("/auth/callback", async (req, res) => {
   }
 });
 
-app.get("/", (_req, res) => {
+app.get("/", (req, res) => {
+  const shop = req.query.shop ? normalizeShop(req.query.shop) : "";
+  const hmac = req.query.hmac || req.query.id_token;
+  if (shop) {
+    const row = getShop(shop);
+    if (!row?.access_token) {
+      const q = new URLSearchParams({ shop });
+      if (req.query.host) q.set("host", String(req.query.host));
+      if (hmac) q.set("hmac", String(req.query.hmac));
+      return res.redirect(302, `/auth?${q.toString()}`);
+    }
+  }
   res.sendFile(path.join(__dirname, "..", "web", "index.html"));
 });
 
@@ -215,6 +243,7 @@ app.get("/api/products", async (req, res) => {
       product_type: p.product_type || "",
       price: p.variants?.[0]?.price || "",
       image: p.image?.src || p.images?.[0]?.src || "",
+      image_id: p.image?.id || p.images?.[0]?.id || null,
       body_preview: String(p.body_html || "")
         .replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
@@ -272,7 +301,7 @@ app.post("/api/generate", async (req, res) => {
       ]
         .filter(Boolean)
         .join("\n");
-      if (!imageUrl) imageUrl = img;
+      imageUrl = img || imageUrl;
       if (!price) price = p.variants?.[0]?.price || price;
     }
 
@@ -281,6 +310,7 @@ app.post("/api/generate", async (req, res) => {
     }
 
     const result = await generateListing({
+      hint: productHint.trim(),
       productHint: productHint.trim(),
       niche,
       price,
@@ -294,6 +324,7 @@ app.post("/api/generate", async (req, res) => {
       variations: result.variations,
       listing: result.listing,
       productId: productId || null,
+      imageUrl: imageUrl?.trim() || "",
       usage: usagePayload(getShop(shop)),
     });
   } catch (e) {
@@ -319,6 +350,19 @@ app.post("/api/publish", async (req, res) => {
       .join("\n");
 
     if (productId) {
+      let images;
+      try {
+        const existing = await shopifyRest(session, `products/${productId}`);
+        const img =
+          existing.product?.image || existing.product?.images?.[0];
+        if (img?.id) {
+          images = [
+            { id: img.id, alt: listing.image_alt || listing.title },
+          ];
+        }
+      } catch {
+        /* alt update is optional */
+      }
       const payload = {
         product: {
           id: Number(productId),
@@ -328,6 +372,7 @@ app.post("/api/publish", async (req, res) => {
           metafields_global_title_tag: listing.metafields_global_title_tag,
           metafields_global_description_tag:
             listing.metafields_global_description_tag,
+          ...(images ? { images } : {}),
         },
       };
       const updated = await shopifyRestPut(
@@ -450,12 +495,36 @@ app.get("/billing/callback", async (req, res) => {
   }
 });
 
-app.post("/webhooks/customers/data_request", (_req, res) => res.sendStatus(200));
-app.post("/webhooks/customers/redact", (_req, res) => res.sendStatus(200));
-app.post("/webhooks/shop/redact", (_req, res) => res.sendStatus(200));
-app.post("/webhooks/app/uninstalled", (req, res) => {
+function verifyWebhook(req, res, next) {
+  const secret = process.env.SHOPIFY_API_SECRET || "";
+  const hmac = req.get("x-shopify-hmac-sha256") || "";
+  const body = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
+  const digest = crypto
+    .createHmac("sha256", secret)
+    .update(body)
+    .digest("base64");
+  const a = Buffer.from(digest);
+  const b = Buffer.from(hmac);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.sendStatus(401);
+  }
+  next();
+}
+
+app.post("/webhooks/customers/data_request", verifyWebhook, (_req, res) =>
+  res.sendStatus(200)
+);
+app.post("/webhooks/customers/redact", verifyWebhook, (_req, res) =>
+  res.sendStatus(200)
+);
+app.post("/webhooks/shop/redact", verifyWebhook, (req, res) => {
   const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
-  if (shop) setShopPlan(shop, "uninstalled");
+  if (shop) deleteShop(shop);
+  res.sendStatus(200);
+});
+app.post("/webhooks/app/uninstalled", verifyWebhook, (req, res) => {
+  const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
+  if (shop) deleteShop(shop);
   res.sendStatus(200);
 });
 
