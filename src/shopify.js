@@ -2,8 +2,18 @@ import "@shopify/shopify-api/adapters/node";
 import { shopifyApi, LATEST_API_VERSION } from "@shopify/shopify-api";
 import { restResources } from "@shopify/shopify-api/rest/admin/2025-01";
 
-const hostName = new URL(process.env.SHOPIFY_APP_URL || "http://localhost:3000")
-  .host;
+function resolveAppUrl() {
+  const raw = String(process.env.SHOPIFY_APP_URL || "http://localhost:3000").trim();
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    return new URL(withScheme);
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+}
+
+const appUrl = resolveAppUrl();
+const hostName = appUrl.host;
 
 // Placeholders keep boot alive on Render if env vars are missing;
 // auth/API routes still need real keys from the Environment tab.
@@ -27,9 +37,7 @@ export const shopify = shopifyApi({
     .split(",")
     .map((s) => s.trim()),
   hostName,
-  hostScheme: process.env.SHOPIFY_APP_URL?.startsWith("https")
-    ? "https"
-    : "http",
+  hostScheme: appUrl.protocol === "https:" ? "https" : "http",
   apiVersion: LATEST_API_VERSION,
   isEmbeddedApp: true,
   restResources,
@@ -125,6 +133,25 @@ export async function activateCharge(session, chargeId) {
     path: `recurring_application_charges/${chargeId}/activate`,
   });
   return res.body.recurring_application_charge;
+}
+
+export async function registerComplianceWebhooks(session) {
+  const base = (process.env.SHOPIFY_APP_URL || "").replace(/\/$/, "");
+  const topics = [
+    ["app/uninstalled", `${base}/webhooks/app/uninstalled`],
+    ["customers/data_request", `${base}/webhooks/customers/data_request`],
+    ["customers/redact", `${base}/webhooks/customers/redact`],
+    ["shop/redact", `${base}/webhooks/shop/redact`],
+  ];
+  for (const [topic, address] of topics) {
+    try {
+      await shopifyRestPost(session, "webhooks", {
+        webhook: { topic, address, format: "json" },
+      });
+    } catch (e) {
+      console.warn("webhook", topic, e.message);
+    }
+  }
 }
 
 export async function getActiveCharge(session) {

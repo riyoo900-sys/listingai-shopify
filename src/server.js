@@ -128,10 +128,12 @@ app.get("/health", (_req, res) => {
   res.json({
     ok: true,
     app: "ListingAI SEO",
-    version: "3.0.1",
+    version: "3.0.2",
     price_usd: PRICE_USD,
+    public_url: process.env.SHOPIFY_APP_URL || null,
   });
 });
+app.get("/health", (_req, res) => res.redirect(302, "/health"));
 
 app.get("/privacy", (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "web", "privacy.html"));
