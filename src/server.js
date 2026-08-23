@@ -31,10 +31,30 @@ import { generateListing } from "./ai/generateListing.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
+const BIND_HOST = "0.0.0.0";
 const FREE_LIMIT = Number(process.env.LISTINGAI_FREE_LISTINGS || 25);
 const PRICE_USD = Number(process.env.LISTINGAI_PRICE_USD || 7.99);
+const APP_SECRET =
+  process.env.SHOPIFY_API_SECRET?.trim() ||
+  process.env.SHOPIFY_SECRET?.trim() ||
+  "";
 
 app.use(compression());
+app.use(
+  "/webhooks",
+  express.raw({ type: "*/*", limit: "2mb" }),
+  (req, _res, next) => {
+    req.rawBody = Buffer.isBuffer(req.body)
+      ? req.body
+      : Buffer.from(String(req.body || ""), "utf8");
+    try {
+      req.body = JSON.parse(req.rawBody.toString("utf8") || "{}");
+    } catch {
+      req.body = {};
+    }
+    next();
+  }
+);
 app.use(
   express.json({
     limit: "4mb",
@@ -124,16 +144,18 @@ function usagePayload(row) {
   };
 }
 
-app.get("/health", (_req, res) => {
-  res.json({
+function healthPayload() {
+  return {
     ok: true,
     app: "ListingAI SEO",
-    version: "3.0.2",
+    version: "3.0.3",
     price_usd: PRICE_USD,
     public_url: process.env.SHOPIFY_APP_URL || null,
-  });
-});
-app.get("/health", (_req, res) => res.redirect(302, "/health"));
+  };
+}
+app.get("/health", (_req, res) => res.json(healthPayload()));
+app.get("/healthz", (_req, res) => res.json(healthPayload()));
+app.get("/ready", (_req, res) => res.json(healthPayload()));
 
 app.get("/privacy", (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "web", "privacy.html"));
@@ -147,6 +169,17 @@ app.get("/auth", async (req, res) => {
   try {
     const shop = normalizeShop(req.query.shop);
     if (!shop) return res.status(400).send("Missing shop");
+    const embedded = String(req.query.embedded || "") === "1";
+    if (embedded) {
+      const q = new URLSearchParams({ shop });
+      if (req.query.host) q.set("host", String(req.query.host));
+      return res
+        .status(200)
+        .type("html")
+        .send(
+          `<!doctype html><meta charset="utf-8"><script>window.top.location.href=${JSON.stringify(`/auth?${q.toString()}`)};</script>`
+        );
+    }
     await shopify.auth.begin({
       shop,
       callbackPath: "/auth/callback",
@@ -200,6 +233,7 @@ app.get("/", (req, res) => {
       const q = new URLSearchParams({ shop });
       if (req.query.host) q.set("host", String(req.query.host));
       if (hmac) q.set("hmac", String(req.query.hmac));
+      if (String(req.query.embedded || "") === "1") q.set("embedded", "1");
       return res.redirect(302, `/auth?${q.toString()}`);
     }
   }
@@ -498,27 +532,45 @@ app.get("/billing/callback", async (req, res) => {
 });
 
 function verifyWebhook(req, res, next) {
-  const secret = process.env.SHOPIFY_API_SECRET || "";
+  const secret = APP_SECRET;
+  if (!secret) return res.sendStatus(401);
   const hmac = req.get("x-shopify-hmac-sha256") || "";
-  const body = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
-  const digest = crypto
-    .createHmac("sha256", secret)
-    .update(body)
-    .digest("base64");
+  const body = Buffer.isBuffer(req.rawBody)
+    ? req.rawBody
+    : Buffer.from(JSON.stringify(req.body || {}));
+  const digest = crypto.createHmac("sha256", secret).update(body).digest("base64");
   const a = Buffer.from(digest);
   const b = Buffer.from(hmac);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+  if (!hmac || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
     return res.sendStatus(401);
   }
   next();
 }
 
-app.post("/webhooks/customers/data_request", verifyWebhook, (_req, res) =>
-  res.sendStatus(200)
+function okWebhook(_req, res) {
+  res.sendStatus(200);
+}
+
+app.get(
+  [
+    "/webhooks/customers/data_request",
+    "/webhooks/customers/redact",
+    "/webhooks/shop/redact",
+    "/webhooks/app/uninstalled",
+    "/webhooks/compliance",
+  ],
+  (_req, res) => res.status(200).send("ok")
 );
-app.post("/webhooks/customers/redact", verifyWebhook, (_req, res) =>
-  res.sendStatus(200)
-);
+app.post("/webhooks/customers/data_request", verifyWebhook, okWebhook);
+app.post("/webhooks/customers/redact", verifyWebhook, okWebhook);
+app.post("/webhooks/compliance", verifyWebhook, (req, res) => {
+  const topic = String(req.get("x-shopify-topic") || "");
+  const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
+  if (shop && (topic === "shop/redact" || topic === "app/uninstalled")) {
+    deleteShop(shop);
+  }
+  res.sendStatus(200);
+});
 app.post("/webhooks/shop/redact", verifyWebhook, (req, res) => {
   const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
   if (shop) deleteShop(shop);
@@ -531,8 +583,12 @@ app.post("/webhooks/app/uninstalled", verifyWebhook, (req, res) => {
 });
 
 requireEnv();
-app.listen(PORT, process.env.HOST || "0.0.0.0", () => {
+const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v3 → ${process.env.SHOPIFY_APP_URL || `http://localhost:${PORT}`} · $${PRICE_USD}/mo`
+    `ListingAI SEO v3.0.3 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
   );
+});
+server.on("error", (err) => {
+  console.error("Listen failed:", err.message);
+  process.exit(1);
 });

@@ -1,7 +1,7 @@
 # Shopify CLI — run: shopify app dev (after Partner setup)
 name = "YAMSHI"
 client_id = "385de99759c069da23b4f62b57eebc78"
-application_url = "https://let-charming-literary-freelance.trycloudflare.com"
+application_url = "https://listingai.yamshi.app"
 embedded = true
 
 [access_scopes]
@@ -9,12 +9,19 @@ scopes = "read_products,write_products"
 
 [auth]
 redirect_urls = [
-  "https://let-charming-literary-freelance.trycloudflare.com/auth/callback",
-  "https://let-charming-literary-freelance.trycloudflare.com/auth/shopify/callback"
+  "https://listingai.yamshi.app/auth/callback"
 ]
 
 [webhooks]
 api_version = "2025-01"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "/webhooks/compliance"
 
 [pos]
 embedded = false

@@ -19,7 +19,9 @@ const hostName = appUrl.host;
 // auth/API routes still need real keys from the Environment tab.
 const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "missing-api-key";
 const apiSecretKey =
-  process.env.SHOPIFY_API_SECRET?.trim() || "missing-api-secret";
+  process.env.SHOPIFY_API_SECRET?.trim() ||
+  process.env.SHOPIFY_SECRET?.trim() ||
+  "missing-api-secret";
 
 if (
   apiKey === "missing-api-key" ||
