@@ -152,7 +152,7 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "3.0.5",
+    version: "3.0.6",
     price_usd: PRICE_USD,
     public_url: process.env.SHOPIFY_APP_URL || null,
   };
@@ -219,9 +219,8 @@ app.get("/auth/callback", async (req, res) => {
     } catch (e) {
       console.warn("register webhooks:", e.message);
     }
-    res.redirect(
-      `/?shop=${encodeURIComponent(session.shop)}&host=${encodeURIComponent(req.query.host || "")}`
-    );
+    const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "";
+    res.redirect(`https://${session.shop}/admin/apps/${apiKey}`);
   } catch (e) {
     console.error(e);
     res.status(500).send(e.message);
@@ -612,7 +611,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v3.0.5 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
+    `ListingAI SEO v3.0.6 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
   );
   cycleStoredTokens();
 });

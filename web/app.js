@@ -183,9 +183,28 @@ els.productSelect?.addEventListener("change", () => {
   }
 });
 
+function installUrl() {
+  const host = params.get("host") || "";
+  const q = new URLSearchParams({ shop });
+  if (host) q.set("host", host);
+  return `${location.origin}/auth?${q.toString()}`;
+}
+
+function goInstall() {
+  const url = installUrl();
+  try {
+    if (window.top && window.top !== window) window.top.location.href = url;
+    else location.href = url;
+  } catch {
+    location.href = url;
+  }
+}
+
 async function loadMe() {
   if (!shop) {
-    els.usageLine.textContent = "Open from Shopify Admin → Apps → YAMSHI";
+    if (els.usageLine) {
+      els.usageLine.textContent = "Open from Shopify Admin → Apps → ListingAI SEO";
+    }
     return;
   }
   try {
@@ -193,16 +212,20 @@ async function loadMe() {
     updateUsage(data.usage);
     await loadProducts();
   } catch (e) {
-    els.error.textContent = e.message;
-    els.usageLine.textContent = e.message;
-    if (/not installed/i.test(e.message)) {
-      els.usageLine.textContent = "Reconnecting store…";
-      const authUrl = `${location.origin}/auth?shop=${encodeURIComponent(shop)}`;
-      if (window.top && window.top !== window) {
-        window.top.location.href = authUrl;
-      } else {
-        location.href = authUrl;
+    const msg = e.message || "Could not reach the store";
+    if (els.error) els.error.textContent = msg;
+    if (els.usageLine) els.usageLine.textContent = msg;
+    if (els.productStatus) els.productStatus.textContent = msg;
+    if (/not installed|expired|reinstall/i.test(msg)) {
+      if (els.usageLine) {
+        els.usageLine.innerHTML =
+          'Store not connected. <a href="#" id="btnReconnect" style="color:#5b8def">Click to install / reconnect</a>';
+        document.getElementById("btnReconnect")?.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          goInstall();
+        });
       }
+      goInstall();
     }
   }
 }
