@@ -28,6 +28,10 @@ export function getShop(shop) {
   return data.shops[shop] || null;
 }
 
+export function listShops() {
+  return Object.values(load().shops || {});
+}
+
 export function upsertShop(shop, accessToken, extra = {}) {
   const data = load();
   const now = new Date().toISOString();

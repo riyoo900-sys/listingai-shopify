@@ -18,7 +18,7 @@
       <h1>SEO listings that sell — and show up in AI search</h1>
       <p>
         Pick a product → 3 AI variations · SEO title/meta · FAQ · alt text · update in one click.
-        Built for Google + ChatGPT/Perplexity. From <strong>$7.99/mo</strong>.
+        Built for Google + ChatGPT/Perplexity. <strong>$7.99/mo</strong>.
       </p>
       <p class="usage" id="usageLine">Loading…</p>
     </section>
@@ -28,7 +28,12 @@
       <select id="productSelect">
         <option value="">— Write from scratch / or pick a product —</option>
       </select>
-      <p class="muted">Loads your catalog. Generate rewrites SEO fields, then Apply updates the same product.</p>
+      <p class="muted" id="productStatus">Loading your product catalog…</p>
+      <p class="muted">Pick a product. AI reads its store photo (color, style, details) and rewrites the SEO fields. Apply then updates that same product and its image alt text.</p>
+      <div id="productPreview" class="preview hidden">
+        <img id="productPreviewImg" alt="Product photo" />
+        <span class="muted">AI will read this photo</span>
+      </div>
 
       <label>Product hint / URL / title (if not picking above)</label>
       <textarea id="productHint" rows="3" placeholder="e.g. Wireless earbuds with ANC, black, USB-C case, $29.99"></textarea>
@@ -36,7 +41,7 @@
       <label>Brand voice (optional — saved in this browser)</label>
       <input id="brandVoice" type="text" placeholder="e.g. Friendly, US English, no hype words, short sentences" />
 
-      <label>Image URL (optional — AI reads it + attaches on new publish)</label>
+      <label>Image URL (optional — auto-filled from the store product)</label>
       <input id="imageUrl" type="url" placeholder="https://…/product.jpg" />
 
       <div class="row3">

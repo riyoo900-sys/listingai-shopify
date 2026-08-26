@@ -1,6 +1,6 @@
 import "@shopify/shopify-api/adapters/node";
-import { shopifyApi, LATEST_API_VERSION } from "@shopify/shopify-api";
-import { restResources } from "@shopify/shopify-api/rest/admin/2025-01";
+import { shopifyApi, ApiVersion } from "@shopify/shopify-api";
+import { restResources } from "@shopify/shopify-api/rest/admin/2025-07";
 
 function resolveAppUrl() {
   const raw = String(process.env.SHOPIFY_APP_URL || "http://localhost:3000").trim();
@@ -40,7 +40,7 @@ export const shopify = shopifyApi({
     .map((s) => s.trim()),
   hostName,
   hostScheme: appUrl.protocol === "https:" ? "https" : "http",
-  apiVersion: LATEST_API_VERSION,
+  apiVersion: ApiVersion.October25,
   isEmbeddedApp: true,
   restResources,
 });
@@ -109,7 +109,7 @@ export async function shopifyRestPut(session, path, data) {
 }
 
 export async function createRecurringCharge(session) {
-  const price = Number(process.env.LISTINGAI_PRICE_USD || 7.99);
+  const price = 7.99;
   const planName = process.env.LISTINGAI_PLAN_NAME || "ListingAI SEO Pro";
   const returnUrl = `${process.env.SHOPIFY_APP_URL}/billing/callback?shop=${encodeURIComponent(session.shop)}`;
 

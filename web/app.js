@@ -6,6 +6,9 @@ const els = {
   usageLine: document.getElementById("usageLine"),
   planBadge: document.getElementById("planBadge"),
   productSelect: document.getElementById("productSelect"),
+  productStatus: document.getElementById("productStatus"),
+  productPreview: document.getElementById("productPreview"),
+  productPreviewImg: document.getElementById("productPreviewImg"),
   productHint: document.getElementById("productHint"),
   brandVoice: document.getElementById("brandVoice"),
   imageUrl: document.getElementById("imageUrl"),
@@ -102,16 +105,16 @@ function showVariations(list) {
 
 function updateUsage(usage) {
   if (!usage) return;
-  const price = usage.price_usd || PRICE;
   if (usage.plan === "pro") {
     els.planBadge.textContent = "Pro";
-    els.usageLine.textContent = `Unlimited listings · Pro $${price}/mo active`;
+    els.usageLine.textContent = `Unlimited listings · Pro $${PRICE}/mo active`;
     els.upgradeCard.classList.add("hidden");
     return;
   }
   els.planBadge.textContent = "Free";
   const left = usage.remaining ?? 0;
-  els.usageLine.textContent = `${left} free listings left (of ${usage.free_limit}) · then $${price}/mo`;
+  const cap = usage.free_limit ?? 15;
+  els.usageLine.textContent = `${left} free listings left (of ${cap}) · then $${PRICE}/mo`;
   if (left <= 0) els.upgradeCard.classList.remove("hidden");
 }
 
@@ -129,12 +132,14 @@ function currentListing() {
 
 async function loadProducts() {
   if (!shop) return;
+  if (els.productStatus) els.productStatus.textContent = "Loading catalog…";
   try {
     const data = await api("/api/products");
     const keep = els.productSelect.options[0];
     els.productSelect.innerHTML = "";
     els.productSelect.appendChild(keep);
-    (data.products || []).forEach((p) => {
+    const list = data.products || [];
+    list.forEach((p) => {
       const opt = document.createElement("option");
       opt.value = String(p.id);
       opt.textContent = p.title + (p.price ? ` · $${p.price}` : "");
@@ -142,16 +147,35 @@ async function loadProducts() {
       opt.dataset.price = p.price || "";
       els.productSelect.appendChild(opt);
     });
+    if (els.productStatus) {
+      els.productStatus.textContent = list.length
+        ? `${list.length} product${list.length === 1 ? "" : "s"} loaded from your store.`
+        : "No products in this store yet. You can still write from scratch below.";
+    }
   } catch (e) {
-    console.warn("products", e);
+    const msg = e.message || "Could not load products";
+    if (els.productStatus) els.productStatus.textContent = msg;
+    if (els.error) els.error.textContent = "Catalog: " + msg;
+  }
+}
+
+function showPreview(url) {
+  if (url) {
+    els.productPreviewImg.src = url;
+    els.productPreview.classList.remove("hidden");
+  } else {
+    els.productPreview.classList.add("hidden");
+    els.productPreviewImg.removeAttribute("src");
   }
 }
 
 els.productSelect.addEventListener("change", () => {
   const opt = els.productSelect.selectedOptions[0];
   activeProductId = els.productSelect.value || null;
-  if (opt?.dataset?.image) els.imageUrl.value = opt.dataset.image;
+  const img = opt?.dataset?.image || "";
+  if (img) els.imageUrl.value = img;
   if (opt?.dataset?.price) els.price.value = opt.dataset.price;
+  showPreview(img);
   if (activeProductId) {
     els.btnPublish.textContent = "Apply to product";
   } else {
@@ -203,6 +227,10 @@ els.btnGenerate.addEventListener("click", async () => {
       },
     });
     if (data.productId) activeProductId = String(data.productId);
+    if (data.imageUrl) {
+      els.imageUrl.value = data.imageUrl;
+      showPreview(data.imageUrl);
+    }
     showVariations(data.variations || [data.listing].filter(Boolean));
     updateUsage(data.usage);
   } catch (e) {

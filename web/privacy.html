@@ -3,29 +3,49 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ListingAI Privacy Policy</title>
+  <title>ListingAI SEO — Privacy Policy</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; line-height: 1.6; color: #142028; }
     h1 { font-size: 1.6rem; } h2 { font-size: 1.1rem; margin-top: 1.5rem; }
   </style>
 </head>
 <body>
-  <h1>ListingAI — Privacy Policy</h1>
-  <p>Last updated: August 20, 2026</p>
-  <p>ListingAI (“we”, “us”) is operated by Yamshi. This policy explains how we handle data when you install and use our Shopify app.</p>
+  <h1>ListingAI SEO — Privacy Policy</h1>
+  <p>Last updated: August 22, 2026</p>
+  <p>ListingAI SEO (“we”, “us”) is operated by Yamshi (Morocco). This policy explains how we handle data when you install and use our Shopify app.</p>
+
   <h2>Data we access</h2>
   <ul>
-    <li>Shop domain and OAuth access token (to create/update products)</li>
-    <li>Product titles and content you submit for AI generation</li>
-    <li>Optional image URLs you provide</li>
+    <li>Shop domain and OAuth access / refresh tokens (to read and update products you choose)</li>
+    <li>Product titles, descriptions, tags, images, and prices from products you generate or update</li>
+    <li>Optional brand-voice text and image URLs you submit</li>
     <li>Billing status via Shopify Billing API</li>
   </ul>
+  <p>We request only <code>read_products</code> and <code>write_products</code>. We do not access orders, customers, or payment methods.</p>
+
   <h2>How we use data</h2>
-  <p>We use shop credentials only to generate listings and publish products you approve. Text and images you submit may be sent to our AI provider (OpenRouter) to generate copy. We do not sell merchant data.</p>
-  <h2>Storage</h2>
-  <p>We store shop tokens and usage counts on our servers to operate the app and enforce free-plan limits.</p>
-  <h2>Uninstall</h2>
-  <p>When you uninstall, we stop accessing your store. You may request deletion of stored shop records by emailing support.</p>
+  <p>Shop credentials are used only to generate listings and to create or update products you approve. Text and product images you select may be sent to our AI provider (OpenRouter) to generate copy. We do not sell merchant or customer data. We do not use data for advertising.</p>
+
+  <h2>Storage and retention</h2>
+  <p>We store shop tokens and usage counts on our servers at listingai.yamshi.app to operate the app and enforce free-plan limits. We keep this data while the app is installed. After uninstall, we delete shop records (including tokens) via the app/uninstalled webhook.</p>
+
+  <h2>GDPR / Shopify compliance webhooks</h2>
+  <p>We support Shopify mandatory webhooks:</p>
+  <ul>
+    <li>customers/data_request</li>
+    <li>customers/redact</li>
+    <li>shop/redact</li>
+    <li>app/uninstalled</li>
+  </ul>
+  <p>This app does not store customer personal data. If a merchant requests deletion, email us and we will delete remaining shop records within 30 days.</p>
+
+  <h2>Subprocessors</h2>
+  <ul>
+    <li>Shopify — authentication and Admin API</li>
+    <li>Yamshi hosting (listingai.yamshi.app)</li>
+    <li>OpenRouter — AI generation (product text/images you submit)</li>
+  </ul>
+
   <h2>Contact</h2>
   <p>Email: <a href="mailto:aalahiane6@gmail.com">aalahiane6@gmail.com</a></p>
 </body>

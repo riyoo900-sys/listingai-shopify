@@ -19,6 +19,7 @@ import {
 } from "./shopify.js";
 import {
   getShop,
+  listShops,
   upsertShop,
   saveShopTokens,
   setShopPlan,
@@ -33,7 +34,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const BIND_HOST = "0.0.0.0";
 const FREE_LIMIT = Number(process.env.LISTINGAI_FREE_LISTINGS || 25);
-const PRICE_USD = Number(process.env.LISTINGAI_PRICE_USD || 7.99);
+const PRICE_USD = 7.99;
 const APP_SECRET =
   process.env.SHOPIFY_API_SECRET?.trim() ||
   process.env.SHOPIFY_SECRET?.trim() ||
@@ -55,14 +56,16 @@ app.use(
     next();
   }
 );
-app.use(
-  express.json({
-    limit: "4mb",
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  })
-);
+const jsonParser = express.json({
+  limit: "4mb",
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  },
+});
+app.use((req, res, next) => {
+  if (req.path.startsWith("/webhooks")) return next();
+  return jsonParser(req, res, next);
+});
 app.use((req, res, next) => {
   const shop = String(req.query.shop || "")
     .replace(/[^a-zA-Z0-9.-]/g, "")
@@ -148,7 +151,7 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "3.0.3",
+    version: "3.0.4",
     price_usd: PRICE_USD,
     public_url: process.env.SHOPIFY_APP_URL || null,
   };
@@ -268,8 +271,11 @@ app.get("/api/products", async (req, res) => {
     const row = getShop(shop);
     if (!row) return res.status(401).json({ error: "Not installed" });
     const session = await getValidSession(shop);
+    if (!session) {
+      return res.status(401).json({ error: "Shopify session expired. Reinstall the app." });
+    }
     const body = await shopifyRest(session, "products", {
-      query: { limit: 50, fields: "id,title,body_html,tags,vendor,product_type,variants,image,images" },
+      query: { limit: 50 },
     });
     const products = (body.products || []).map((p) => ({
       id: p.id,
@@ -582,11 +588,24 @@ app.post("/webhooks/app/uninstalled", verifyWebhook, (req, res) => {
   res.sendStatus(200);
 });
 
+async function cycleStoredTokens() {
+  for (const row of listShops()) {
+    if (!row?.shop || !row.access_token) continue;
+    try {
+      await getValidSession(row.shop);
+      console.log("token ok", row.shop);
+    } catch (e) {
+      console.error("token cycle", row.shop, e.message);
+    }
+  }
+}
+
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v3.0.3 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
+    `ListingAI SEO v3.0.4 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
   );
+  cycleStoredTokens();
 });
 server.on("error", (err) => {
   console.error("Listen failed:", err.message);

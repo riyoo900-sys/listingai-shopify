@@ -1,5 +1,5 @@
 # Shopify CLI — run: shopify app dev (after Partner setup)
-name = "YAMSHI"
+name = "ListingAI SEO"
 client_id = "385de99759c069da23b4f62b57eebc78"
 application_url = "https://listingai.yamshi.app"
 embedded = true
@@ -13,15 +13,23 @@ redirect_urls = [
 ]
 
 [webhooks]
-api_version = "2025-01"
+api_version = "2025-10"
 
   [[webhooks.subscriptions]]
   topics = ["app/uninstalled"]
-  uri = "/webhooks/app/uninstalled"
+  uri = "https://listingai.yamshi.app/webhooks/app/uninstalled"
 
   [[webhooks.subscriptions]]
-  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
-  uri = "/webhooks/compliance"
+  compliance_topics = ["customers/data_request"]
+  uri = "https://listingai.yamshi.app/webhooks/customers/data_request"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/redact"]
+  uri = "https://listingai.yamshi.app/webhooks/customers/redact"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = ["shop/redact"]
+  uri = "https://listingai.yamshi.app/webhooks/shop/redact"
 
 [pos]
 embedded = false
