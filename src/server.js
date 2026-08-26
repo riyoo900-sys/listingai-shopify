@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import compression from "compression";
 import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -151,7 +152,7 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "3.0.4",
+    version: "3.0.5",
     price_usd: PRICE_USD,
     public_url: process.env.SHOPIFY_APP_URL || null,
   };
@@ -227,20 +228,28 @@ app.get("/auth/callback", async (req, res) => {
   }
 });
 
+function sendAppHtml(res) {
+  const htmlPath = path.join(__dirname, "..", "web", "index.html");
+  let html = fs.readFileSync(htmlPath, "utf8");
+  const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "";
+  html = html.replaceAll("%%SHOPIFY_API_KEY%%", apiKey);
+  res.type("html").send(html);
+}
+
 app.get("/", (req, res) => {
   const shop = req.query.shop ? normalizeShop(req.query.shop) : "";
-  const hmac = req.query.hmac || req.query.id_token;
-  if (shop) {
+  const embedded =
+    String(req.query.embedded || "") === "1" || Boolean(req.query.host);
+  // Never bounce OAuth inside the Admin iframe — that leaves a white screen.
+  if (shop && !embedded) {
     const row = getShop(shop);
     if (!row?.access_token) {
       const q = new URLSearchParams({ shop });
       if (req.query.host) q.set("host", String(req.query.host));
-      if (hmac) q.set("hmac", String(req.query.hmac));
-      if (String(req.query.embedded || "") === "1") q.set("embedded", "1");
       return res.redirect(302, `/auth?${q.toString()}`);
     }
   }
-  res.sendFile(path.join(__dirname, "..", "web", "index.html"));
+  sendAppHtml(res);
 });
 
 app.get("/api/me", async (req, res) => {
@@ -603,7 +612,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v3.0.4 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
+    `ListingAI SEO v3.0.5 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
   );
   cycleStoredTokens();
 });

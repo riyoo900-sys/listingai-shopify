@@ -40,12 +40,12 @@ let activeProductId = null;
 
 try {
   const saved = localStorage.getItem("listingai_brand_voice");
-  if (saved) els.brandVoice.value = saved;
+  if (saved && els.brandVoice) els.brandVoice.value = saved;
 } catch {
   /* ignore */
 }
 
-els.brandVoice.addEventListener("change", () => {
+els.brandVoice?.addEventListener("change", () => {
   try {
     localStorage.setItem("listingai_brand_voice", els.brandVoice.value.trim());
   } catch {
@@ -169,7 +169,7 @@ function showPreview(url) {
   }
 }
 
-els.productSelect.addEventListener("change", () => {
+els.productSelect?.addEventListener("change", () => {
   const opt = els.productSelect.selectedOptions[0];
   activeProductId = els.productSelect.value || null;
   const img = opt?.dataset?.image || "";
@@ -207,7 +207,7 @@ async function loadMe() {
   }
 }
 
-els.btnGenerate.addEventListener("click", async () => {
+els.btnGenerate?.addEventListener("click", async () => {
   els.error.textContent = "";
   els.btnGenerate.disabled = true;
   try {
@@ -241,7 +241,7 @@ els.btnGenerate.addEventListener("click", async () => {
   }
 });
 
-els.btnPublish.addEventListener("click", async () => {
+els.btnPublish?.addEventListener("click", async () => {
   els.error.textContent = "";
   els.btnPublish.disabled = true;
   try {
@@ -266,7 +266,7 @@ els.btnPublish.addEventListener("click", async () => {
   }
 });
 
-els.btnBulk.addEventListener("click", async () => {
+els.btnBulk?.addEventListener("click", async () => {
   els.bulkOut.textContent = "Running…";
   try {
     const data = await api("/api/bulk", {
@@ -285,8 +285,10 @@ els.btnBulk.addEventListener("click", async () => {
   }
 });
 
-els.btnUpgrade.addEventListener("click", () => {
-  location.href = `/billing/start?shop=${encodeURIComponent(shop)}`;
+els.btnUpgrade?.addEventListener("click", () => {
+  const url = `/billing/start?shop=${encodeURIComponent(shop)}`;
+  if (window.top && window.top !== window) window.top.location.href = url;
+  else location.href = url;
 });
 
 loadMe();
