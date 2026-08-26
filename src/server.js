@@ -73,6 +73,8 @@ app.use((req, res, next) => {
     .slice(0, 80);
   const ancestors = [
     "https://admin.shopify.com",
+    "https://*.shopify.com",
+    "https://admin.shopify.com",
     "https://*.myshopify.com",
     shop ? `https://${shop}` : "",
   ]
@@ -152,7 +154,7 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "3.0.6",
+    version: "3.0.7",
     price_usd: PRICE_USD,
     public_url: process.env.SHOPIFY_APP_URL || null,
   };
@@ -173,15 +175,21 @@ app.get("/auth", async (req, res) => {
   try {
     const shop = normalizeShop(req.query.shop);
     if (!shop) return res.status(400).send("Missing shop");
-    const embedded = String(req.query.embedded || "") === "1";
-    if (embedded) {
+    const dest = String(req.get("sec-fetch-dest") || "");
+    const inIframe =
+      dest === "iframe" ||
+      dest === "nested-document" ||
+      String(req.query.embedded || "") === "1";
+    if (inIframe) {
       const q = new URLSearchParams({ shop });
       if (req.query.host) q.set("host", String(req.query.host));
+      const appUrl = String(process.env.SHOPIFY_APP_URL || "").replace(/\/$/, "");
+      const abs = `${appUrl}/auth?${q.toString()}`;
       return res
         .status(200)
         .type("html")
         .send(
-          `<!doctype html><meta charset="utf-8"><script>window.top.location.href=${JSON.stringify(`/auth?${q.toString()}`)};</script>`
+          `<!doctype html><meta charset="utf-8"><script>window.top.location.href=${JSON.stringify(abs)};</script>`
         );
     }
     await shopify.auth.begin({
@@ -611,7 +619,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v3.0.6 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
+    `ListingAI SEO v3.0.7 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
   );
   cycleStoredTokens();
 });

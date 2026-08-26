@@ -192,12 +192,11 @@ function installUrl() {
 
 function goInstall() {
   const url = installUrl();
-  try {
-    if (window.top && window.top !== window) window.top.location.href = url;
-    else location.href = url;
-  } catch {
-    location.href = url;
+  if (window.top && window.top !== window) {
+    window.top.location.href = url;
+    return;
   }
+  location.href = url;
 }
 
 async function loadMe() {
@@ -225,7 +224,6 @@ async function loadMe() {
           goInstall();
         });
       }
-      goInstall();
     }
   }
 }
