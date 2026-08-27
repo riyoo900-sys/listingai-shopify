@@ -1,0 +1,34 @@
+name = "YAMSHI Pixels"
+application_url = "https://listingai.yamshi.app/pixels"
+embedded = true
+
+[access_scopes]
+scopes = "read_orders,write_script_tags,read_script_tags,read_customers"
+
+[auth]
+redirect_urls = [
+  "https://listingai.yamshi.app/pixels/auth/callback"
+]
+
+[webhooks]
+api_version = "2025-10"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = ["orders/paid"]
+  uri = "/webhooks/orders/paid"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request"]
+  uri = "/webhooks/customers/data_request"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/redact"]
+  uri = "/webhooks/customers/redact"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = ["shop/redact"]
+  uri = "/webhooks/shop/redact"

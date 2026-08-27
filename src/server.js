@@ -29,6 +29,7 @@ import {
   deleteShop,
 } from "./db.js";
 import { generateListing } from "./ai/generateListing.js";
+import { app as pixelsApp } from "../pixels/src/server.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -42,6 +43,7 @@ const APP_SECRET =
   "";
 
 app.use(compression());
+app.use("/pixels", pixelsApp);
 app.use(
   "/webhooks",
   express.raw({ type: "*/*", limit: "2mb" }),
@@ -64,7 +66,7 @@ const jsonParser = express.json({
   },
 });
 app.use((req, res, next) => {
-  if (req.path.startsWith("/webhooks")) return next();
+  if (req.path.startsWith("/webhooks") || req.path.startsWith("/pixels")) return next();
   return jsonParser(req, res, next);
 });
 app.use((req, res, next) => {

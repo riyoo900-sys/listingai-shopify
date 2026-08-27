@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YAMSHI Pixels</title>
+  <meta name="shopify-api-key" content="%%SHOPIFY_API_KEY%%" />
+  <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">YAMSHI Pixels</div>
+      <span class="badge">Unlimited pixels</span>
+    </header>
+    <section class="hero">
+      <h1>All your Meta pixels. One store. Zero replacements.</h1>
+      <p>Browser pixel + Conversion API. Adding a pixel never deletes the old ones.</p>
+      <p class="usage" id="usageLine">Loading…</p>
+    </section>
+    <div class="stats" id="stats">
+      <div class="stat"><b id="statPixels">0</b><span>pixels active</span></div>
+      <div class="stat"><b id="statEvents">0</b><span>events today</span></div>
+      <div class="stat"><b id="statCapi">0</b><span>CAPI connected</span></div>
+      <div class="stat"><b>$%%PRICE%%</b><span>per month</span></div>
+    </div>
+    <section class="card">
+      <div class="row-head">
+        <h2>Pixels</h2>
+        <button type="button" class="btn primary" id="btnAdd">+ Add pixel</button>
+      </div>
+      <p class="muted">Competitors replace your pixel. We stack them. Every event is sent to every connected pixel.</p>
+      <div id="pixelList"></div>
+      <p class="err" id="error"></p>
+    </section>
+    <section class="card hidden" id="formCard">
+      <h2 id="formTitle">Add Meta pixel</h2>
+      <label>Pixel name</label>
+      <input id="fName" placeholder="Summer campaign" />
+      <label>Meta Pixel ID</label>
+      <input id="fPixelId" placeholder="182944000000221" />
+      <label>Conversion API access token</label>
+      <input id="fToken" type="password" placeholder="EAAG…" />
+      <label>Test event code (optional)</label>
+      <input id="fTest" placeholder="TEST12345" />
+      <p class="muted">Adding a pixel never deletes existing pixels.</p>
+      <div class="actions">
+        <button type="button" class="btn primary" id="btnSave">Save pixel</button>
+        <button type="button" class="btn" id="btnCancel">Cancel</button>
+      </div>
+    </section>
+    <section class="card upgrade" id="billingCard">
+      <h2>15 days free, then choose a plan</h2>
+      <p class="muted">Unlimited Meta pixels + Conversion API. No charge during the trial. Cancel anytime in Shopify.</p>
+      <div class="actions">
+        <button type="button" class="btn primary" id="btnMonthly">$%%PRICE%%/month after trial</button>
+        <button type="button" class="btn" id="btnYearly">$%%PRICE_YEAR%%/year after trial</button>
+      </div>
+      <p class="muted">Yearly = 45 ÷ 12 = $3.75/mo. Shopify Billing only — no extra cards.</p>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
