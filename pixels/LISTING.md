@@ -32,7 +32,7 @@ Pricing (must match the app)
 - Yearly: $45 USD
 - Billed only through Shopify. No extra cards.
 
-Support: aalahiane6@gmail.com  
+Support: developer@yamshi.app  
 Privacy: https://listingai.yamshi.app/pixels/privacy  
 Support: https://listingai.yamshi.app/pixels/support  
 App URL: https://listingai.yamshi.app/pixels
