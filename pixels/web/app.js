@@ -9,8 +9,14 @@ async function api(path, opts = {}) {
   const u = new URL(abs(path));
   if (shop && !u.searchParams.get("shop")) u.searchParams.set("shop", shop);
   const url = u.toString();
+  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+  if (window.shopify?.idToken) {
+    try {
+      headers.Authorization = `Bearer ${await window.shopify.idToken()}`;
+    } catch (_) {}
+  }
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...opts,
     body: opts.body ? JSON.stringify({ ...opts.body, shop }) : undefined,
   });

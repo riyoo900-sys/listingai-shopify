@@ -1,4 +1,5 @@
 name = "YAMSHI Pixels"
+client_id = "64241c79b68b150e47e663bf5b407166"
 application_url = "https://listingai.yamshi.app/pixels"
 embedded = true
 
@@ -15,20 +16,20 @@ api_version = "2025-10"
 
   [[webhooks.subscriptions]]
   topics = ["app/uninstalled"]
-  uri = "/webhooks/app/uninstalled"
+  uri = "https://listingai.yamshi.app/pixels/webhooks/app/uninstalled"
 
   [[webhooks.subscriptions]]
   topics = ["orders/paid"]
-  uri = "/webhooks/orders/paid"
+  uri = "https://listingai.yamshi.app/pixels/webhooks/orders/paid"
 
   [[webhooks.subscriptions]]
   compliance_topics = ["customers/data_request"]
-  uri = "/webhooks/customers/data_request"
+  uri = "https://listingai.yamshi.app/pixels/webhooks/customers/data_request"
 
   [[webhooks.subscriptions]]
   compliance_topics = ["customers/redact"]
-  uri = "/webhooks/customers/redact"
+  uri = "https://listingai.yamshi.app/pixels/webhooks/customers/redact"
 
   [[webhooks.subscriptions]]
   compliance_topics = ["shop/redact"]
-  uri = "/webhooks/shop/redact"
+  uri = "https://listingai.yamshi.app/pixels/webhooks/shop/redact"

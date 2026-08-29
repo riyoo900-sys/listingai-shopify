@@ -50,11 +50,12 @@ function pixelsApiKey() {
   return process.env.SHOPIFY_API_KEY?.trim() || "";
 }
 
-const APP_SECRET =
-  process.env.PIXELS_SHOPIFY_API_SECRET?.trim() ||
-  process.env.SHOPIFY_API_SECRET?.trim() ||
-  process.env.SHOPIFY_SECRET?.trim() ||
-  "";
+const APP_SECRET = process.env.PIXELS_APP_URL?.trim()
+  ? process.env.PIXELS_SHOPIFY_API_SECRET?.trim() || ""
+  : process.env.PIXELS_SHOPIFY_API_SECRET?.trim() ||
+    process.env.SHOPIFY_API_SECRET?.trim() ||
+    process.env.SHOPIFY_SECRET?.trim() ||
+    "";
 
 app.use(compression());
 app.use(
@@ -126,8 +127,21 @@ async function getValidSession(shop) {
 }
 
 function shopFromReq(req) {
-  return normalizeShop(req.query.shop || req.body?.shop || "");
+  return normalizeShop(req.query.shop || req.body?.shop || req.shopFromToken || "");
 }
+
+async function attachSessionShop(req, _res, next) {
+  const auth = req.get("Authorization") || "";
+  const token = auth.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return next();
+  try {
+    const payload = await shopify.session.decodeSessionToken(token);
+    req.shopFromToken = normalizeShop(String(payload.dest || "").replace(/^https?:\/\//, ""));
+  } catch (_) {}
+  next();
+}
+
+app.use("/api", attachSessionShop);
 
 app.get("/health", (_req, res) =>
   res.json({ ok: true, app: "YAMSHI Pixels", version: "1.0.0", price_usd: PRICE_USD })

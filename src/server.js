@@ -556,18 +556,22 @@ app.get("/billing/callback", async (req, res) => {
 });
 
 function verifyWebhook(req, res, next) {
-  const secret = APP_SECRET;
-  if (!secret) return res.sendStatus(401);
+  const secrets = [
+    APP_SECRET,
+    process.env.PIXELS_SHOPIFY_API_SECRET?.trim(),
+  ].filter(Boolean);
+  if (!secrets.length) return res.sendStatus(401);
   const hmac = req.get("x-shopify-hmac-sha256") || "";
   const body = Buffer.isBuffer(req.rawBody)
     ? req.rawBody
     : Buffer.from(JSON.stringify(req.body || {}));
-  const digest = crypto.createHmac("sha256", secret).update(body).digest("base64");
-  const a = Buffer.from(digest);
-  const b = Buffer.from(hmac);
-  if (!hmac || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    return res.sendStatus(401);
-  }
+  const ok = secrets.some((secret) => {
+    const digest = crypto.createHmac("sha256", secret).update(body).digest("base64");
+    const a = Buffer.from(digest);
+    const b = Buffer.from(hmac);
+    return hmac && a.length === b.length && crypto.timingSafeEqual(a, b);
+  });
+  if (!ok) return res.sendStatus(401);
   next();
 }
 
