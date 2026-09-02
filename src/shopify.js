@@ -108,20 +108,18 @@ export async function shopifyRestPut(session, path, data) {
   return res.body;
 }
 
-export async function createRecurringCharge(session) {
-  const price = 7.99;
-  const planName = process.env.LISTINGAI_PLAN_NAME || "ListingAI SEO Pro";
-  const returnUrl = `${process.env.SHOPIFY_APP_URL}/billing/callback?shop=${encodeURIComponent(session.shop)}`;
+export async function createRecurringCharge(session, plan) {
+  const returnUrl = `${process.env.SHOPIFY_APP_URL}/billing/callback?shop=${encodeURIComponent(session.shop)}&plan=${encodeURIComponent(plan.id)}`;
 
   const client = new shopify.clients.Rest({ session });
   const res = await client.post({
     path: "recurring_application_charges",
     data: {
       recurring_application_charge: {
-        name: planName,
-        price,
+        name: plan.name,
+        price: plan.price,
         return_url: returnUrl,
-        trial_days: 7,
+        trial_days: plan.trial_days ?? 7,
         test: process.env.SHOPIFY_BILLING_TEST === "true",
       },
     },
