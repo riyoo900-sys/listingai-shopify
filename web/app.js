@@ -51,10 +51,14 @@ let lastResult = null;
 let activeProductId = null;
 let storeCollections = [];
 
+const CATEGORY_ALL = "__all__";
+
 function selectedCategory() {
   const custom = els.productCategoryCustom?.value.trim();
   if (custom) return custom;
-  return els.productCategory?.value.trim() || "";
+  const val = els.productCategory?.value.trim();
+  if (!val || val === CATEGORY_ALL) return "";
+  return val;
 }
 
 function selectedCollectionMeta() {
@@ -65,10 +69,14 @@ function selectedCollectionMeta() {
 }
 
 function fillCategorySelect(types) {
-  const keep = els.productCategory.options[0];
   els.productCategory.innerHTML = "";
-  els.productCategory.appendChild(keep);
+  const allOpt = document.createElement("option");
+  allOpt.value = CATEGORY_ALL;
+  allOpt.textContent = "All — AI picks the best category";
+  allOpt.selected = true;
+  els.productCategory.appendChild(allOpt);
   (types || []).forEach((t) => {
+    if (!t) return;
     const opt = document.createElement("option");
     opt.value = t;
     opt.textContent = t;
@@ -78,9 +86,12 @@ function fillCategorySelect(types) {
 
 function fillCollectionSelect(collections) {
   storeCollections = collections || [];
-  const keep = els.collectionSelect.options[0];
   els.collectionSelect.innerHTML = "";
-  els.collectionSelect.appendChild(keep);
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "All / none — not tied to one collection";
+  none.selected = true;
+  els.collectionSelect.appendChild(none);
   storeCollections.forEach((c) => {
     const opt = document.createElement("option");
     opt.value = String(c.id);
@@ -100,8 +111,8 @@ async function loadCategories() {
       const c = (data.collections || []).length;
       els.categoryStatus.textContent =
         n || c
-          ? `${n} categories · ${c} collections from your store`
-          : "Choose a category or type your own below";
+          ? `${n} categories · ${c} collections — or leave All`
+          : "No categories yet? Leave All — AI will choose for you.";
     }
   } catch (e) {
     if (els.categoryStatus) els.categoryStatus.textContent = e.message;
@@ -396,12 +407,6 @@ els.btnCreate?.addEventListener("click", async () => {
     els.productPrice.focus();
     return;
   }
-  const category = selectedCategory();
-  if (!category) {
-    els.error.textContent = "Choose or type a store category for this product.";
-    els.productCategory?.focus();
-    return;
-  }
   if (!hasPhoto()) {
     els.error.textContent =
       "Upload a product photo (or pick an existing product with an image).";
@@ -413,13 +418,14 @@ els.btnCreate?.addEventListener("click", async () => {
   try {
     const coll = selectedCollectionMeta();
     const img = imagePayload();
+    const cat = selectedCategory();
     const data = await api("/api/generate", {
       method: "POST",
       body: {
         productName: name,
         price,
-        category,
-        collectionTitle: coll.title,
+        ...(cat ? { category: cat } : {}),
+        ...(coll.title ? { collectionTitle: coll.title } : {}),
         language: els.language.value,
         imageBase64: img.imageBase64,
         imageUrl: img.imageUrl,
@@ -458,7 +464,7 @@ els.btnPublish?.addEventListener("click", async () => {
         listing: currentListing(),
         options: lastResult?.options || {},
         price: els.productPrice.value.trim(),
-        category: els.outCategory?.value.trim() || selectedCategory(),
+        category: els.outCategory?.value.trim() || selectedCategory() || undefined,
         collectionId: coll.id || null,
         imageBase64: img.imageBase64,
         imageUrl: img.imageUrl,
@@ -485,7 +491,7 @@ els.btnPublish?.addEventListener("click", async () => {
 els.btnNew?.addEventListener("click", () => {
   els.productName.value = "";
   els.productPrice.value = "";
-  els.productCategory.value = "";
+  els.productCategory.value = CATEGORY_ALL;
   els.productCategoryCustom.value = "";
   els.collectionSelect.value = "";
   clearPhoto();

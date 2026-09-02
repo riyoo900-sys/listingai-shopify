@@ -156,7 +156,7 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "4.1.0",
+    version: "4.1.1",
     price_usd: PRICE_USD,
     public_url: process.env.SHOPIFY_APP_URL || null,
   };
@@ -250,7 +250,7 @@ function sendAppHtml(res) {
   let html = fs.readFileSync(htmlPath, "utf8");
   const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "";
   html = html.replaceAll("%%SHOPIFY_API_KEY%%", apiKey);
-  html = html.replaceAll("%%APP_VERSION%%", "4.1.0");
+  html = html.replaceAll("%%APP_VERSION%%", "4.1.1");
   res.type("html").send(html);
 }
 
@@ -461,16 +461,13 @@ app.post("/api/generate", async (req, res) => {
     }
 
     const storeCategory = String(category || "").trim();
-    if (!storeCategory) {
-      return res.status(400).json({ error: "Store category is required." });
-    }
 
     const result = await generateListing({
       productName: name,
       productHint: name,
       price: normalizePrice(price),
       language,
-      category: storeCategory,
+      category: storeCategory || undefined,
       collectionTitle: String(collectionTitle || "").trim(),
       imageUrl: imageUrl?.trim() || "",
       imageBase64: imageBase64?.trim() || "",
@@ -770,7 +767,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v4.1.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
+    `ListingAI SEO v4.1.1 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
   );
   cycleStoredTokens();
 });
