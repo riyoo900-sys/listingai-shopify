@@ -27,16 +27,22 @@ import {
   incrementListingUsage,
   logPublished,
   deleteShop,
+  ensureMonthlyRow,
 } from "./db.js";
 import { generateListing, buildShopifyVariants } from "./ai/generateListing.js";
+import {
+  FREE_LIMIT,
+  PLANS,
+  resolvePlanId,
+  planFromChargePrice,
+  plansForClient,
+} from "./plans.js";
 import { app as pixelsApp } from "../pixels/src/server.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const BIND_HOST = "0.0.0.0";
-const FREE_LIMIT = Number(process.env.LISTINGAI_FREE_LISTINGS || 25);
-const PRICE_USD = 7.99;
 const APP_SECRET =
   process.env.SHOPIFY_API_SECRET?.trim() ||
   process.env.SHOPIFY_SECRET?.trim() ||
@@ -137,18 +143,54 @@ async function getValidSession(shop) {
 
 function canGenerate(row) {
   if (!row) return false;
-  if (row.plan === "pro") return true;
-  return row.listings_used < FREE_LIMIT;
+  const fresh = ensureMonthlyRow(row.shop) || row;
+  if (fresh.plan === "pro") return true;
+  if (fresh.plan === "starter") {
+    return (fresh.monthly_listings_used || 0) < PLANS.starter.limit;
+  }
+  return (fresh.listings_used || 0) < FREE_LIMIT;
 }
 
 function usagePayload(row) {
+  const fresh = (row?.shop ? ensureMonthlyRow(row.shop) : null) || row;
+  if (!fresh) return { plans: plansForClient() };
+
+  const plans = plansForClient();
+
+  if (fresh.plan === "pro") {
+    return {
+      plan: "pro",
+      listings_used: fresh.listings_used || 0,
+      free_limit: FREE_LIMIT,
+      plan_limit: null,
+      monthly_used: fresh.monthly_listings_used || 0,
+      remaining: null,
+      plans,
+    };
+  }
+
+  if (fresh.plan === "starter") {
+    const limit = PLANS.starter.limit;
+    const used = fresh.monthly_listings_used || 0;
+    return {
+      plan: "starter",
+      listings_used: fresh.listings_used || 0,
+      free_limit: FREE_LIMIT,
+      plan_limit: limit,
+      monthly_used: used,
+      remaining: Math.max(0, limit - used),
+      plans,
+    };
+  }
+
   return {
-    plan: row.plan,
-    listings_used: row.listings_used,
+    plan: "free",
+    listings_used: fresh.listings_used || 0,
     free_limit: FREE_LIMIT,
-    remaining:
-      row.plan === "pro" ? null : Math.max(0, FREE_LIMIT - row.listings_used),
-    price_usd: PRICE_USD,
+    plan_limit: null,
+    monthly_used: fresh.monthly_listings_used || 0,
+    remaining: Math.max(0, FREE_LIMIT - (fresh.listings_used || 0)),
+    plans,
   };
 }
 
@@ -156,8 +198,9 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "4.1.3",
-    price_usd: PRICE_USD,
+    version: "4.2.0",
+    plans: plansForClient(),
+    free_limit: FREE_LIMIT,
     public_url: process.env.SHOPIFY_APP_URL || null,
   };
 }
@@ -250,7 +293,7 @@ function sendAppHtml(res) {
   let html = fs.readFileSync(htmlPath, "utf8");
   const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "";
   html = html.replaceAll("%%SHOPIFY_API_KEY%%", apiKey);
-  html = html.replaceAll("%%APP_VERSION%%", "4.1.3");
+  html = html.replaceAll("%%APP_VERSION%%", "4.2.0");
   res.type("html").send(html);
 }
 
@@ -280,7 +323,13 @@ app.get("/api/me", async (req, res) => {
   try {
     session = await getValidSession(shop);
     billing = session ? await getActiveCharge(session) : null;
-    if (billing && row.plan !== "pro") setShopPlan(shop, "pro", String(billing.id));
+    if (billing) {
+      const detected = planFromChargePrice(billing.price);
+      const current = getShop(shop);
+      if (current && current.plan !== detected) {
+        setShopPlan(shop, detected, String(billing.id));
+      }
+    }
   } catch {
     /* ignore */
   }
@@ -397,10 +446,16 @@ app.post("/api/generate", async (req, res) => {
     const row = getShop(shop);
     if (!row) return res.status(401).json({ error: "Not installed" });
     if (!canGenerate(row)) {
+      const fresh = getShop(shop);
+      const usage = usagePayload(fresh);
+      const msg =
+        fresh?.plan === "starter"
+          ? "Starter monthly limit reached (50 listings). Upgrade to Pro for unlimited."
+          : "Free limit reached";
       return res.status(402).json({
-        error: "Free limit reached",
-        usage: usagePayload(row),
-        upgrade_url: `/billing/start?shop=${encodeURIComponent(shop)}`,
+        error: msg,
+        usage,
+        upgrade_url: `/billing/start?shop=${encodeURIComponent(shop)}&plan=pro`,
       });
     }
 
@@ -675,8 +730,10 @@ app.get("/billing/start", async (req, res) => {
     const shop = normalizeShop(req.query.shop);
     const row = getShop(shop);
     if (!row) return res.status(401).send("Not installed");
+    const planId = resolvePlanId(req.query.plan);
+    const plan = PLANS[planId] || PLANS.pro;
     const session = await getValidSession(shop);
-    const charge = await createRecurringCharge(session);
+    const charge = await createRecurringCharge(session, plan);
     setShopPlan(shop, "pending", String(charge.id));
     res.redirect(charge.confirmation_url);
   } catch (e) {
@@ -689,12 +746,13 @@ app.get("/billing/callback", async (req, res) => {
   try {
     const shop = normalizeShop(req.query.shop);
     const chargeId = req.query.charge_id;
+    const planId = resolvePlanId(req.query.plan);
     const row = getShop(shop);
     if (!row) return res.status(401).send("Not installed");
     const session = await getValidSession(shop);
     await activateCharge(session, chargeId);
-    setShopPlan(shop, "pro", String(chargeId));
-    res.redirect(`/?shop=${encodeURIComponent(shop)}&billing=ok`);
+    setShopPlan(shop, planId, String(chargeId));
+    res.redirect(`/?shop=${encodeURIComponent(shop)}&billing=ok&plan=${planId}`);
   } catch (e) {
     console.error(e);
     res.status(500).send(e.message);
@@ -767,7 +825,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v4.1.2 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
+    `ListingAI SEO v4.2.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · Starter $${PLANS.starter.price} · Pro $${PLANS.pro.price}`
   );
   cycleStoredTokens();
 });
