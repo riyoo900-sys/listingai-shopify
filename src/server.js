@@ -28,7 +28,7 @@ import {
   logPublished,
   deleteShop,
 } from "./db.js";
-import { generateListing } from "./ai/generateListing.js";
+import { generateListing, buildShopifyVariants } from "./ai/generateListing.js";
 import { app as pixelsApp } from "../pixels/src/server.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -60,7 +60,7 @@ app.use(
   }
 );
 const jsonParser = express.json({
-  limit: "4mb",
+  limit: "12mb",
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   },
@@ -156,7 +156,7 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "3.0.7",
+    version: "4.0.0",
     price_usd: PRICE_USD,
     public_url: process.env.SHOPIFY_APP_URL || null,
   };
@@ -237,11 +237,20 @@ app.get("/auth/callback", async (req, res) => {
   }
 });
 
+function normalizePrice(raw) {
+  const n = String(raw || "")
+    .replace(/[^\d.,]/g, "")
+    .replace(",", ".");
+  const v = parseFloat(n);
+  return Number.isFinite(v) && v > 0 ? v.toFixed(2) : "19.99";
+}
+
 function sendAppHtml(res) {
   const htmlPath = path.join(__dirname, "..", "web", "index.html");
   let html = fs.readFileSync(htmlPath, "utf8");
   const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "";
   html = html.replaceAll("%%SHOPIFY_API_KEY%%", apiKey);
+  html = html.replaceAll("%%APP_VERSION%%", "4.0.0");
   res.type("html").send(html);
 }
 
@@ -331,15 +340,16 @@ app.post("/api/generate", async (req, res) => {
     }
 
     let {
+      productName,
       productHint,
-      niche,
       price,
-      tone,
       language,
       imageUrl,
-      brandVoice,
+      imageBase64,
       productId,
     } = req.body;
+
+    let existingHint = "";
 
     if (productId) {
       const session = await getValidSession(shop);
@@ -351,40 +361,50 @@ app.post("/api/generate", async (req, res) => {
         .replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
         .trim();
-      productHint = [
-        `Title: ${p.title}`,
+      if (!productName?.trim()) productName = p.title;
+      if (!price) price = p.variants?.[0]?.price || price;
+      if (!imageUrl && !imageBase64) imageUrl = img;
+      existingHint = [
+        `Current title: ${p.title}`,
         p.product_type ? `Type: ${p.product_type}` : "",
-        p.vendor ? `Vendor: ${p.vendor}` : "",
         p.tags ? `Tags: ${p.tags}` : "",
-        p.variants?.[0]?.price ? `Price: $${p.variants[0].price}` : "",
-        plain ? `Current description: ${plain.slice(0, 800)}` : "",
+        plain ? `Description: ${plain.slice(0, 600)}` : "",
+        p.variants?.length > 1
+          ? `Existing variants: ${p.variants.map((v) => [v.option1, v.option2].filter(Boolean).join("/")).join(", ")}`
+          : "",
       ]
         .filter(Boolean)
         .join("\n");
-      imageUrl = img || imageUrl;
-      if (!price) price = p.variants?.[0]?.price || price;
     }
 
-    if (!productHint?.trim()) {
-      return res.status(400).json({ error: "productHint or productId required" });
+    const name = String(productName || productHint || "").trim();
+    if (!name) {
+      return res.status(400).json({ error: "Product name is required" });
+    }
+
+    const hasImage =
+      Boolean(String(imageBase64 || "").trim()) ||
+      Boolean(String(imageUrl || "").trim().startsWith("http"));
+
+    if (!hasImage && !productId) {
+      return res.status(400).json({
+        error: "Upload a product photo so AI can analyze it.",
+      });
     }
 
     const result = await generateListing({
-      hint: productHint.trim(),
-      productHint: productHint.trim(),
-      niche,
-      price,
-      tone,
+      productName: name,
+      productHint: name,
+      price: normalizePrice(price),
       language,
       imageUrl: imageUrl?.trim() || "",
-      brandVoice: brandVoice?.trim() || "",
+      imageBase64: imageBase64?.trim() || "",
+      existingHint,
     });
     incrementListingUsage(shop);
     res.json({
-      variations: result.variations,
-      listing: result.listing,
+      ...result,
       productId: productId || null,
-      imageUrl: imageUrl?.trim() || "",
       usage: usagePayload(getShop(shop)),
     });
   } catch (e) {
@@ -399,8 +419,14 @@ app.post("/api/publish", async (req, res) => {
     const row = getShop(shop);
     if (!row) return res.status(401).json({ error: "Not installed" });
 
-    const { listing, vendor, product_type, price, imageUrl, productId } =
-      req.body;
+    const {
+      listing,
+      options,
+      price,
+      imageUrl,
+      imageBase64,
+      productId,
+    } = req.body;
     if (!listing?.title)
       return res.status(400).json({ error: "listing.title required" });
 
@@ -409,19 +435,38 @@ app.post("/api/publish", async (req, res) => {
       .filter(Boolean)
       .join("\n");
 
+    const { options: shopifyOptions, variants } = buildShopifyVariants(
+      options || {},
+      normalizePrice(price)
+    );
+
+    function buildImages() {
+      const alt = listing.image_alt || listing.title;
+      const b64 = String(imageBase64 || "").trim();
+      if (b64.startsWith("data:image")) {
+        const attachment = b64.replace(/^data:image\/\w+;base64,/, "");
+        return [{ attachment, alt }];
+      }
+      if (imageUrl?.startsWith("http")) {
+        return [{ src: imageUrl, alt }];
+      }
+      return undefined;
+    }
+
     if (productId) {
       let images;
       try {
         const existing = await shopifyRest(session, `products/${productId}`);
         const img =
           existing.product?.image || existing.product?.images?.[0];
-        if (img?.id) {
-          images = [
-            { id: img.id, alt: listing.image_alt || listing.title },
-          ];
+        const newImages = buildImages();
+        if (newImages?.length) {
+          images = newImages;
+        } else if (img?.id) {
+          images = [{ id: img.id, alt: listing.image_alt || listing.title }];
         }
       } catch {
-        /* alt update is optional */
+        /* optional */
       }
       const payload = {
         product: {
@@ -429,6 +474,8 @@ app.post("/api/publish", async (req, res) => {
           title: listing.title,
           body_html: bodyHtml,
           tags: listing.tags || "",
+          product_type: listing.product_type || undefined,
+          vendor: listing.vendor || undefined,
           metafields_global_title_tag: listing.metafields_global_title_tag,
           metafields_global_description_tag:
             listing.metafields_global_description_tag,
@@ -448,29 +495,24 @@ app.post("/api/publish", async (req, res) => {
       });
     }
 
-    const product = {
-      product: {
-        title: listing.title,
-        body_html: bodyHtml,
-        tags: listing.tags || "",
-        vendor: vendor || "ListingAI",
-        product_type: product_type || "",
-        metafields_global_title_tag: listing.metafields_global_title_tag,
-        metafields_global_description_tag:
-          listing.metafields_global_description_tag,
-        variants: [
-          {
-            price: String(price || "19.99"),
-            inventory_management: null,
-          },
-        ],
-        images: imageUrl?.startsWith("http")
-          ? [{ src: imageUrl, alt: listing.image_alt || listing.title }]
-          : undefined,
-      },
+    const productPayload = {
+      title: listing.title,
+      body_html: bodyHtml,
+      tags: listing.tags || "",
+      vendor: listing.vendor || "ListingAI",
+      product_type: listing.product_type || "",
+      metafields_global_title_tag: listing.metafields_global_title_tag,
+      metafields_global_description_tag:
+        listing.metafields_global_description_tag,
+      variants,
+      ...(shopifyOptions.length ? { options: shopifyOptions } : {}),
     };
+    const imgs = buildImages();
+    if (imgs?.length) productPayload.images = imgs;
 
-    const created = await shopifyRestPost(session, "products", product);
+    const created = await shopifyRestPost(session, "products", {
+      product: productPayload,
+    });
     logPublished(shop, String(created.product?.id || ""), "publish");
     res.json({ product: created.product, usage: usagePayload(getShop(shop)) });
   } catch (e) {
@@ -501,10 +543,10 @@ app.post("/api/bulk", async (req, res) => {
       }
       try {
         const result = await generateListing({
+          productName: line,
           productHint: line,
-          tone: req.body.tone,
           language: req.body.language,
-          brandVoice: req.body.brandVoice,
+          price: normalizePrice(req.body.price),
         });
         incrementListingUsage(shop);
         results.push({
@@ -556,22 +598,18 @@ app.get("/billing/callback", async (req, res) => {
 });
 
 function verifyWebhook(req, res, next) {
-  const secrets = [
-    APP_SECRET,
-    process.env.PIXELS_SHOPIFY_API_SECRET?.trim(),
-  ].filter(Boolean);
-  if (!secrets.length) return res.sendStatus(401);
+  const secret = APP_SECRET;
+  if (!secret) return res.sendStatus(401);
   const hmac = req.get("x-shopify-hmac-sha256") || "";
   const body = Buffer.isBuffer(req.rawBody)
     ? req.rawBody
     : Buffer.from(JSON.stringify(req.body || {}));
-  const ok = secrets.some((secret) => {
-    const digest = crypto.createHmac("sha256", secret).update(body).digest("base64");
-    const a = Buffer.from(digest);
-    const b = Buffer.from(hmac);
-    return hmac && a.length === b.length && crypto.timingSafeEqual(a, b);
-  });
-  if (!ok) return res.sendStatus(401);
+  const digest = crypto.createHmac("sha256", secret).update(body).digest("base64");
+  const a = Buffer.from(digest);
+  const b = Buffer.from(hmac);
+  if (!hmac || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.sendStatus(401);
+  }
   next();
 }
 
@@ -625,7 +663,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v3.0.7 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
+    `ListingAI SEO v4.0.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
   );
   cycleStoredTokens();
 });

@@ -5,58 +5,48 @@ const PRICE = 7.99;
 const els = {
   usageLine: document.getElementById("usageLine"),
   planBadge: document.getElementById("planBadge"),
-  productSelect: document.getElementById("productSelect"),
-  productStatus: document.getElementById("productStatus"),
-  productPreview: document.getElementById("productPreview"),
-  productPreviewImg: document.getElementById("productPreviewImg"),
-  productHint: document.getElementById("productHint"),
-  brandVoice: document.getElementById("brandVoice"),
-  imageUrl: document.getElementById("imageUrl"),
-  niche: document.getElementById("niche"),
-  price: document.getElementById("price"),
-  tone: document.getElementById("tone"),
+  stepsBar: document.getElementById("stepsBar"),
+  stepProduct: document.getElementById("stepProduct"),
+  stepPreview: document.getElementById("stepPreview"),
+  stepDone: document.getElementById("stepDone"),
+  productName: document.getElementById("productName"),
+  productPrice: document.getElementById("productPrice"),
+  uploadZone: document.getElementById("uploadZone"),
+  photoInput: document.getElementById("photoInput"),
+  uploadPlaceholder: document.getElementById("uploadPlaceholder"),
+  uploadPreview: document.getElementById("uploadPreview"),
+  previewImg: document.getElementById("previewImg"),
+  btnChangePhoto: document.getElementById("btnChangePhoto"),
+  existingSelect: document.getElementById("existingSelect"),
+  catalogStatus: document.getElementById("catalogStatus"),
   language: document.getElementById("language"),
-  btnGenerate: document.getElementById("btnGenerate"),
+  btnCreate: document.getElementById("btnCreate"),
+  btnBack: document.getElementById("btnBack"),
   btnPublish: document.getElementById("btnPublish"),
-  btnBulk: document.getElementById("btnBulk"),
-  bulkLines: document.getElementById("bulkLines"),
-  bulkOut: document.getElementById("bulkOut"),
+  btnNew: document.getElementById("btnNew"),
+  btnOpenShopify: document.getElementById("btnOpenShopify"),
   error: document.getElementById("error"),
-  variationsCard: document.getElementById("variationsCard"),
-  upgradeCard: document.getElementById("upgradeCard"),
-  varTabs: document.getElementById("varTabs"),
+  errorPublish: document.getElementById("errorPublish"),
+  analysisBox: document.getElementById("analysisBox"),
+  optionsBox: document.getElementById("optionsBox"),
+  optionsChips: document.getElementById("optionsChips"),
   outTitle: document.getElementById("outTitle"),
-  outTags: document.getElementById("outTags"),
   outSeoTitle: document.getElementById("outSeoTitle"),
   outSeoDesc: document.getElementById("outSeoDesc"),
+  outTags: document.getElementById("outTags"),
   outAlt: document.getElementById("outAlt"),
   outBody: document.getElementById("outBody"),
+  upgradeCard: document.getElementById("upgradeCard"),
   btnUpgrade: document.getElementById("btnUpgrade"),
 };
 
-let variations = [];
-let selected = 0;
+let imageBase64 = "";
+let imageDataUrl = "";
+let lastResult = null;
 let activeProductId = null;
 
-try {
-  const saved = localStorage.getItem("listingai_brand_voice");
-  if (saved && els.brandVoice) els.brandVoice.value = saved;
-} catch {
-  /* ignore */
-}
-
-els.brandVoice?.addEventListener("change", () => {
-  try {
-    localStorage.setItem("listingai_brand_voice", els.brandVoice.value.trim());
-  } catch {
-    /* ignore */
-  }
-});
-
 async function api(path, opts = {}) {
-  const url = path.includes("?")
-    ? path
-    : `${path}?shop=${encodeURIComponent(shop)}`;
+  const url = path.includes("?") ? path : `${path}?shop=${encodeURIComponent(shop)}`;
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
     ...opts,
@@ -67,119 +57,217 @@ async function api(path, opts = {}) {
   return data;
 }
 
-function fillVariation(i) {
-  selected = i;
-  const v = variations[i];
-  if (!v) return;
-  els.outTitle.value = v.title || "";
-  els.outTags.value = v.tags || "";
-  els.outSeoTitle.value = v.metafields_global_title_tag || "";
-  els.outSeoDesc.value = v.metafields_global_description_tag || "";
-  els.outAlt.value = v.image_alt || "";
-  els.outBody.value = [v.body_html || "", v.faq_html || ""]
-    .filter(Boolean)
-    .join("\n\n");
-  [...els.varTabs.querySelectorAll(".tab")].forEach((t, idx) => {
-    t.classList.toggle("active", idx === i);
+function setStep(n) {
+  els.stepsBar?.querySelectorAll(".step").forEach((s) => {
+    s.classList.toggle("is-active", Number(s.dataset.step) === n);
+    s.classList.toggle("is-done", Number(s.dataset.step) < n);
   });
-  els.btnPublish.disabled = false;
-  els.btnPublish.textContent = activeProductId
-    ? "Apply to product"
-    : "Publish as new product";
-}
-
-function showVariations(list) {
-  variations = list || [];
-  els.varTabs.innerHTML = "";
-  variations.forEach((_, i) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "tab" + (i === 0 ? " active" : "");
-    b.textContent = `Version ${i + 1}`;
-    b.onclick = () => fillVariation(i);
-    els.varTabs.appendChild(b);
-  });
-  els.variationsCard.classList.remove("hidden");
-  fillVariation(0);
+  els.stepProduct.classList.toggle("hidden", n !== 1);
+  els.stepPreview.classList.toggle("hidden", n !== 2);
+  els.stepDone.classList.toggle("hidden", n !== 3);
 }
 
 function updateUsage(usage) {
   if (!usage) return;
   if (usage.plan === "pro") {
     els.planBadge.textContent = "Pro";
-    els.usageLine.textContent = `Unlimited listings · Pro $${PRICE}/mo active`;
+    els.usageLine.textContent = `Unlimited listings · Pro $${PRICE}/mo`;
     els.upgradeCard.classList.add("hidden");
     return;
   }
   els.planBadge.textContent = "Free";
   const left = usage.remaining ?? 0;
-  const cap = usage.free_limit ?? 15;
-  els.usageLine.textContent = `${left} free listings left (of ${cap}) · then $${PRICE}/mo`;
+  const cap = usage.free_limit ?? 25;
+  els.usageLine.textContent = `${left} free listings left · then $${PRICE}/mo`;
   if (left <= 0) els.upgradeCard.classList.remove("hidden");
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function showPhotoPreview(dataUrl) {
+  imageDataUrl = dataUrl;
+  imageBase64 = dataUrl;
+  els.previewImg.src = dataUrl;
+  els.uploadPlaceholder.classList.add("hidden");
+  els.uploadPreview.classList.remove("hidden");
+}
+
+function clearPhoto() {
+  imageBase64 = "";
+  imageDataUrl = "";
+  els.previewImg.removeAttribute("src");
+  els.uploadPreview.classList.add("hidden");
+  els.uploadPlaceholder.classList.remove("hidden");
+  els.photoInput.value = "";
+}
+
+async function handlePhotoFile(file) {
+  if (!file || !file.type.startsWith("image/")) {
+    els.error.textContent = "Please upload a JPG, PNG or WebP image.";
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    els.error.textContent = "Image too large (max 4 MB).";
+    return;
+  }
+  els.error.textContent = "";
+  const dataUrl = await readFileAsDataUrl(file);
+  showPhotoPreview(dataUrl);
+}
+
+els.uploadZone?.addEventListener("click", () => els.photoInput?.click());
+els.btnChangePhoto?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  els.photoInput?.click();
+});
+els.photoInput?.addEventListener("change", () => {
+  const file = els.photoInput.files?.[0];
+  if (file) handlePhotoFile(file);
+});
+els.uploadZone?.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  els.uploadZone.classList.add("is-drag");
+});
+els.uploadZone?.addEventListener("dragleave", () => {
+  els.uploadZone.classList.remove("is-drag");
+});
+els.uploadZone?.addEventListener("drop", (e) => {
+  e.preventDefault();
+  els.uploadZone.classList.remove("is-drag");
+  const file = e.dataTransfer?.files?.[0];
+  if (file) handlePhotoFile(file);
+});
+
+function renderOptions(options) {
+  const parts = [];
+  if (options?.sizes?.length) parts.push({ label: "Sizes", values: options.sizes });
+  if (options?.colors?.length) parts.push({ label: "Colors", values: options.colors });
+  if (options?.styles?.length) parts.push({ label: "Styles", values: options.styles });
+
+  if (!parts.length) {
+    els.optionsBox.classList.add("hidden");
+    return;
+  }
+
+  els.optionsBox.classList.remove("hidden");
+  els.optionsChips.innerHTML = parts
+    .map(
+      (g) =>
+        `<div class="option-group"><strong>${g.label}</strong><div class="chips">${g.values
+          .map((v) => `<span class="chip">${escapeHtml(v)}</span>`)
+          .join("")}</div></div>`
+    )
+    .join("");
+}
+
+function renderAnalysis(analysis) {
+  if (!analysis?.summary) {
+    els.analysisBox.innerHTML = "";
+    els.analysisBox.classList.add("hidden");
+    return;
+  }
+  els.analysisBox.classList.remove("hidden");
+  const details = (analysis.visible_details || [])
+    .map((d) => `<li>${escapeHtml(d)}</li>`)
+    .join("");
+  els.analysisBox.innerHTML = `
+    <h2>AI analysis</h2>
+    <p>${escapeHtml(analysis.summary)}</p>
+    ${details ? `<ul>${details}</ul>` : ""}
+    ${analysis.category ? `<p class="muted">Category: ${escapeHtml(analysis.category)}</p>` : ""}
+  `;
+}
+
+function fillPreview(data) {
+  const listing = data.listing || {};
+  els.outTitle.value = listing.title || "";
+  els.outSeoTitle.value = listing.metafields_global_title_tag || "";
+  els.outSeoDesc.value = listing.metafields_global_description_tag || "";
+  els.outTags.value = listing.tags || "";
+  els.outAlt.value = listing.image_alt || "";
+  els.outBody.value = [listing.body_html || "", listing.faq_html || ""].filter(Boolean).join("\n\n");
+  renderAnalysis(data.analysis);
+  renderOptions(data.options);
 }
 
 function currentListing() {
   return {
-    title: els.outTitle.value,
-    tags: els.outTags.value,
+    title: els.outTitle.value.trim(),
+    tags: els.outTags.value.trim(),
     body_html: els.outBody.value,
-    metafields_global_title_tag: els.outSeoTitle.value,
-    metafields_global_description_tag: els.outSeoDesc.value,
-    image_alt: els.outAlt.value,
+    metafields_global_title_tag: els.outSeoTitle.value.trim(),
+    metafields_global_description_tag: els.outSeoDesc.value.trim(),
+    image_alt: els.outAlt.value.trim(),
     faq_html: "",
+    product_type: lastResult?.listing?.product_type || "",
+    vendor: lastResult?.listing?.vendor || "",
   };
+}
+
+function imagePayload() {
+  const img = String(imageDataUrl || imageBase64 || "");
+  return {
+    imageBase64: img.startsWith("data:") ? img : "",
+    imageUrl: img.startsWith("http") ? img : "",
+  };
+}
+
+function hasPhoto() {
+  const img = String(imageDataUrl || imageBase64 || "");
+  return img.startsWith("data:") || img.startsWith("http");
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 async function loadProducts() {
   if (!shop) return;
-  if (els.productStatus) els.productStatus.textContent = "Loading catalog…";
   try {
     const data = await api("/api/products");
-    const keep = els.productSelect.options[0];
-    els.productSelect.innerHTML = "";
-    els.productSelect.appendChild(keep);
-    const list = data.products || [];
-    list.forEach((p) => {
+    const keep = els.existingSelect.options[0];
+    els.existingSelect.innerHTML = "";
+    els.existingSelect.appendChild(keep);
+    (data.products || []).forEach((p) => {
       const opt = document.createElement("option");
       opt.value = String(p.id);
       opt.textContent = p.title + (p.price ? ` · $${p.price}` : "");
-      opt.dataset.image = p.image || "";
+      opt.dataset.title = p.title;
       opt.dataset.price = p.price || "";
-      els.productSelect.appendChild(opt);
+      opt.dataset.image = p.image || "";
+      els.existingSelect.appendChild(opt);
     });
-    if (els.productStatus) {
-      els.productStatus.textContent = list.length
-        ? `${list.length} product${list.length === 1 ? "" : "s"} loaded from your store.`
-        : "No products in this store yet. You can still write from scratch below.";
+    if (els.catalogStatus) {
+      els.catalogStatus.textContent = data.products?.length
+        ? `${data.products.length} products in your store`
+        : "No products yet — create a new one below";
     }
   } catch (e) {
-    const msg = e.message || "Could not load products";
-    if (els.productStatus) els.productStatus.textContent = msg;
-    if (els.error) els.error.textContent = "Catalog: " + msg;
+    if (els.catalogStatus) els.catalogStatus.textContent = e.message;
   }
 }
 
-function showPreview(url) {
-  if (url) {
-    els.productPreviewImg.src = url;
-    els.productPreview.classList.remove("hidden");
-  } else {
-    els.productPreview.classList.add("hidden");
-    els.productPreviewImg.removeAttribute("src");
-  }
-}
-
-els.productSelect?.addEventListener("change", () => {
-  const opt = els.productSelect.selectedOptions[0];
-  activeProductId = els.productSelect.value || null;
-  const img = opt?.dataset?.image || "";
-  if (img) els.imageUrl.value = img;
-  if (opt?.dataset?.price) els.price.value = opt.dataset.price;
-  showPreview(img);
-  if (activeProductId) {
-    els.btnPublish.textContent = "Apply to product";
-  } else {
-    els.btnPublish.textContent = "Publish as new product";
+els.existingSelect?.addEventListener("change", () => {
+  const opt = els.existingSelect.selectedOptions[0];
+  activeProductId = els.existingSelect.value || null;
+  if (!activeProductId) return;
+  if (opt.dataset.title) els.productName.value = opt.dataset.title;
+  if (opt.dataset.price) els.productPrice.value = opt.dataset.price;
+  if (opt.dataset.image) {
+    imageBase64 = opt.dataset.image;
+    imageDataUrl = opt.dataset.image;
+    showPhotoPreview(opt.dataset.image);
   }
 });
 
@@ -192,18 +280,13 @@ function installUrl() {
 
 function goInstall() {
   const url = installUrl();
-  if (window.top && window.top !== window) {
-    window.top.location.href = url;
-    return;
-  }
-  location.href = url;
+  if (window.top && window.top !== window) window.top.location.href = url;
+  else location.href = url;
 }
 
 async function loadMe() {
   if (!shop) {
-    if (els.usageLine) {
-      els.usageLine.textContent = "Open from Shopify Admin → Apps → ListingAI SEO";
-    }
+    els.usageLine.textContent = "Open from Shopify Admin → Apps → ListingAI SEO";
     return;
   }
   try {
@@ -211,99 +294,115 @@ async function loadMe() {
     updateUsage(data.usage);
     await loadProducts();
   } catch (e) {
-    const msg = e.message || "Could not reach the store";
-    if (els.error) els.error.textContent = msg;
-    if (els.usageLine) els.usageLine.textContent = msg;
-    if (els.productStatus) els.productStatus.textContent = msg;
+    const msg = e.message || "Could not connect store";
+    els.usageLine.textContent = msg;
     if (/not installed|expired|reinstall/i.test(msg)) {
-      if (els.usageLine) {
-        els.usageLine.innerHTML =
-          'Store not connected. <a href="#" id="btnReconnect" style="color:#5b8def">Click to install / reconnect</a>';
-        document.getElementById("btnReconnect")?.addEventListener("click", (ev) => {
-          ev.preventDefault();
-          goInstall();
-        });
-      }
+      els.usageLine.innerHTML =
+        'Store not connected. <a href="#" id="btnReconnect">Install / reconnect</a>';
+      document.getElementById("btnReconnect")?.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        goInstall();
+      });
     }
   }
 }
 
-els.btnGenerate?.addEventListener("click", async () => {
+els.btnCreate?.addEventListener("click", async () => {
   els.error.textContent = "";
-  els.btnGenerate.disabled = true;
+  const name = els.productName.value.trim();
+  const price = els.productPrice.value.trim();
+  if (!name) {
+    els.error.textContent = "Enter the product name.";
+    els.productName.focus();
+    return;
+  }
+  if (!price) {
+    els.error.textContent = "Enter the price.";
+    els.productPrice.focus();
+    return;
+  }
+  if (!hasPhoto()) {
+    els.error.textContent =
+      "Upload a product photo (or pick an existing product with an image).";
+    return;
+  }
+
+  els.btnCreate.disabled = true;
+  els.btnCreate.textContent = "Analyzing photo & writing listing…";
   try {
-    const productId = els.productSelect.value || null;
-    activeProductId = productId;
+    const img = imagePayload();
     const data = await api("/api/generate", {
       method: "POST",
       body: {
-        productId,
-        productHint: els.productHint.value,
-        niche: els.niche.value,
-        price: els.price.value,
-        tone: els.tone.value,
+        productName: name,
+        price,
         language: els.language.value,
-        imageUrl: els.imageUrl.value,
-        brandVoice: els.brandVoice.value,
+        imageBase64: img.imageBase64,
+        imageUrl: img.imageUrl,
+        productId: activeProductId,
       },
     });
-    if (data.productId) activeProductId = String(data.productId);
-    if (data.imageUrl) {
-      els.imageUrl.value = data.imageUrl;
-      showPreview(data.imageUrl);
-    }
-    showVariations(data.variations || [data.listing].filter(Boolean));
+    lastResult = data;
+    fillPreview(data);
+    setStep(2);
     updateUsage(data.usage);
   } catch (e) {
     els.error.textContent = e.message;
     if (/limit/i.test(e.message)) els.upgradeCard.classList.remove("hidden");
   } finally {
-    els.btnGenerate.disabled = false;
+    els.btnCreate.disabled = false;
+    els.btnCreate.textContent = "Create professional listing";
   }
 });
 
+els.btnBack?.addEventListener("click", () => setStep(1));
+
 els.btnPublish?.addEventListener("click", async () => {
-  els.error.textContent = "";
+  els.errorPublish.textContent = "";
+  if (!currentListing().title) {
+    els.errorPublish.textContent = "Title is required.";
+    return;
+  }
   els.btnPublish.disabled = true;
+  els.btnPublish.textContent = "Publishing…";
   try {
+    const img = imagePayload();
     const data = await api("/api/publish", {
       method: "POST",
       body: {
         listing: currentListing(),
-        price: els.price.value || "19.99",
-        imageUrl: els.imageUrl.value,
-        productId: activeProductId || els.productSelect.value || null,
+        options: lastResult?.options || {},
+        price: els.productPrice.value.trim(),
+        imageBase64: img.imageBase64,
+        imageUrl: img.imageUrl,
+        productId: activeProductId,
       },
     });
-    els.error.style.color = "#3dd68c";
-    els.error.textContent = data.updated
-      ? "Product updated ✓ — check Products"
-      : "Published to Shopify ✓ — check Products";
+    const pid = data.product?.id;
+    els.doneMessage.textContent = data.updated
+      ? "Product updated with professional SEO copy ✓"
+      : "New product published with title, description, SEO, variants & image ✓";
+    if (pid && shop) {
+      const store = shop.replace(".myshopify.com", "");
+      els.btnOpenShopify.href = `https://admin.shopify.com/store/${store}/products/${pid}`;
+    }
+    setStep(3);
   } catch (e) {
-    els.error.style.color = "#ff7b7b";
-    els.error.textContent = e.message;
+    els.errorPublish.textContent = e.message;
   } finally {
     els.btnPublish.disabled = false;
+    els.btnPublish.textContent = "Publish to Shopify";
   }
 });
 
-els.btnBulk?.addEventListener("click", async () => {
-  els.bulkOut.textContent = "Running…";
-  try {
-    const data = await api("/api/bulk", {
-      method: "POST",
-      body: {
-        lines: els.bulkLines.value,
-        tone: els.tone.value,
-        language: els.language.value,
-        brandVoice: els.brandVoice.value,
-      },
-    });
-    els.bulkOut.textContent = JSON.stringify(data.results, null, 2);
-    updateUsage(data.usage);
-  } catch (e) {
-    els.bulkOut.textContent = e.message;
-  }
+els.btnNew?.addEventListener("click", () => {
+  els.productName.value = "";
+  els.productPrice.value = "";
+  clearPhoto();
+  activeProductId = null;
+  els.existingSelect.value = "";
+  lastResult = null;
+  setStep(1);
 });
 
 els.btnUpgrade?.addEventListener("click", () => {

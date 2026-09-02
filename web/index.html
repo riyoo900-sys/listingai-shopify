@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ListingAI SEO — AI Shopify Listings</title>
+  <title>ListingAI SEO — Professional product listings</title>
   <meta name="shopify-api-key" content="%%SHOPIFY_API_KEY%%" />
   <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/app.css" />
+  <link rel="stylesheet" href="/app.css?v=%%APP_VERSION%%" />
 </head>
 <body>
   <div class="wrap">
@@ -17,103 +17,117 @@
     </header>
 
     <section class="hero">
-      <h1>SEO listings that sell — and show up in AI search</h1>
-      <p>
-        Pick a product → 3 AI variations · SEO title/meta · FAQ · alt text · update in one click.
-        Built for Google + ChatGPT/Perplexity. <strong>$7.99/mo</strong>.
-      </p>
+      <h1>Professional listing in one click</h1>
+      <p class="hero-sub">Enter product name, upload photo, set price — AI reads the image and creates title, SEO, description, variants &amp; alt text.</p>
       <p class="usage" id="usageLine">Loading…</p>
     </section>
 
-    <section class="card">
-      <label>Store product (recommended)</label>
-      <select id="productSelect">
-        <option value="">— Write from scratch / or pick a product —</option>
-      </select>
-      <p class="muted" id="productStatus">Loading your product catalog…</p>
-      <p class="muted">Pick a product. AI reads its store photo (color, style, details) and rewrites the SEO fields. Apply then updates that same product and its image alt text.</p>
-      <div id="productPreview" class="preview hidden">
-        <img id="productPreviewImg" alt="Product photo" />
-        <span class="muted">AI will read this photo</span>
+    <div class="steps" id="stepsBar">
+      <span class="step is-active" data-step="1">1. Product</span>
+      <span class="step" data-step="2">2. AI preview</span>
+      <span class="step" data-step="3">3. Published</span>
+    </div>
+
+    <section class="card card-main" id="stepProduct">
+      <div class="field">
+        <label for="productName">Product name *</label>
+        <input id="productName" type="text" placeholder="e.g. Women's linen abaya — taupe" autocomplete="off" />
       </div>
 
-      <label>Product hint / URL / title (if not picking above)</label>
-      <textarea id="productHint" rows="3" placeholder="e.g. Wireless earbuds with ANC, black, USB-C case, $29.99"></textarea>
-
-      <label>Brand voice (optional — saved in this browser)</label>
-      <input id="brandVoice" type="text" placeholder="e.g. Friendly, US English, no hype words, short sentences" />
-
-      <label>Image URL (optional — auto-filled from the store product)</label>
-      <input id="imageUrl" type="url" placeholder="https://…/product.jpg" />
-
-      <div class="row3">
-        <div>
-          <label>Tone</label>
-          <select id="tone">
-            <option value="professional">Professional</option>
-            <option value="casual">Casual</option>
-            <option value="luxury">Luxury</option>
-            <option value="urgent">Urgent / deal</option>
-          </select>
-        </div>
-        <div>
-          <label>Language</label>
-          <select id="language">
-            <option value="English">English</option>
-            <option value="Spanish">Spanish</option>
-            <option value="French">French</option>
-            <option value="German">German</option>
-          </select>
-        </div>
-        <div>
-          <label>Price USD</label>
-          <input id="price" type="text" placeholder="29.99" />
+      <div class="field">
+        <label>Product photo *</label>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp" hidden />
+          <div id="uploadPlaceholder">
+            <strong>Drop photo here or click to upload</strong>
+            <span>AI reads colors, shape, material &amp; style from your image</span>
+          </div>
+          <div id="uploadPreview" class="upload-preview hidden">
+            <img id="previewImg" alt="Product preview" />
+            <button type="button" class="btn btn-sm" id="btnChangePhoto">Change photo</button>
+          </div>
         </div>
       </div>
 
-      <label>Niche (optional)</label>
-      <input id="niche" type="text" placeholder="Fitness, Beauty, Gadgets…" />
+      <div class="field">
+        <label for="productPrice">Price (USD) *</label>
+        <input id="productPrice" type="text" inputmode="decimal" placeholder="29.99" />
+      </div>
+
+      <details class="advanced">
+        <summary>Advanced — update existing product or language</summary>
+        <div class="field">
+          <label for="existingSelect">Existing product (optional)</label>
+          <select id="existingSelect">
+            <option value="">— Create new product —</option>
+          </select>
+          <p class="muted" id="catalogStatus">Loading catalog…</p>
+        </div>
+        <div class="field row2">
+          <div>
+            <label for="language">Language</label>
+            <select id="language">
+              <option value="English">English</option>
+              <option value="French">French</option>
+              <option value="Spanish">Spanish</option>
+              <option value="Arabic">Arabic</option>
+              <option value="German">German</option>
+            </select>
+          </div>
+        </div>
+      </details>
 
       <div class="actions">
-        <button type="button" class="btn primary" id="btnGenerate">Generate 3 SEO listings</button>
-        <button type="button" class="btn" id="btnPublish" disabled>Apply / Publish</button>
+        <button type="button" class="btn primary btn-lg" id="btnCreate">Create professional listing</button>
       </div>
       <p class="err" id="error"></p>
     </section>
 
-    <section class="card hidden" id="variationsCard">
-      <h2>Pick a variation</h2>
-      <div class="tabs" id="varTabs"></div>
+    <section class="card hidden" id="stepPreview">
+      <div class="analysis-box" id="analysisBox"></div>
+
+      <div class="options-detected hidden" id="optionsBox">
+        <h2>Detected options</h2>
+        <p class="muted">AI found these variants from your product — they will be created in Shopify.</p>
+        <div id="optionsChips"></div>
+      </div>
+
+      <h2>Preview — edit if needed</h2>
       <label>Title</label>
       <input id="outTitle" type="text" />
-      <label>Tags</label>
-      <input id="outTags" type="text" />
       <label>SEO title</label>
       <input id="outSeoTitle" type="text" />
       <label>SEO description</label>
       <input id="outSeoDesc" type="text" />
-      <label>Image alt</label>
+      <label>Tags</label>
+      <input id="outTags" type="text" />
+      <label>Image alt text</label>
       <input id="outAlt" type="text" />
-      <label>Description + FAQ (HTML)</label>
-      <textarea id="outBody" rows="12"></textarea>
+      <label>Description + FAQ</label>
+      <textarea id="outBody" rows="14"></textarea>
+
+      <div class="actions">
+        <button type="button" class="btn" id="btnBack">← Back</button>
+        <button type="button" class="btn primary btn-lg" id="btnPublish">Publish to Shopify</button>
+      </div>
+      <p class="err" id="errorPublish"></p>
     </section>
 
-    <section class="card">
-      <h2>Bulk mode (up to 50 lines)</h2>
-      <p class="muted">One product hint per line. Uses free credits.</p>
-      <textarea id="bulkLines" rows="5" placeholder="Red hiking backpack 40L&#10;Stainless steel water bottle 32oz&#10;Yoga mat non-slip purple"></textarea>
+    <section class="card success-card hidden" id="stepDone">
+      <h2>Published ✓</h2>
+      <p id="doneMessage">Your product is live in Shopify with professional copy and SEO.</p>
       <div class="actions">
-        <button type="button" class="btn" id="btnBulk">Run bulk generate</button>
+        <a class="btn primary" id="btnOpenShopify" href="#" target="_blank" rel="noopener">Open in Shopify Admin</a>
+        <button type="button" class="btn" id="btnNew">Create another product</button>
       </div>
-      <pre class="bulkOut" id="bulkOut"></pre>
     </section>
 
     <section class="card upgrade hidden" id="upgradeCard">
       <h2>Upgrade to Pro — $7.99/mo</h2>
-      <p>Unlimited AI SEO listings · 7-day trial · cancel anytime</p>
-      <button type="button" class="btn primary" id="btnUpgrade">Start $7.99/mo plan</button>
+      <p>Unlimited professional listings · 7-day trial</p>
+      <button type="button" class="btn primary" id="btnUpgrade">Start Pro plan</button>
     </section>
   </div>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=%%APP_VERSION%%"></script>
 </body>
 </html>
