@@ -10,6 +10,8 @@ Rules:
 - FAQ: 2-3 Q&A blocks for Google and AI search (AEO).
 - Tags: 8-12 relevant comma-ready strings.
 - Image alt texts: professional, descriptive, SEO-friendly (125 chars max each).
+- Tailor tone, keywords, and benefits to the merchant's store category when provided.
+- When merchant category is provided, product_type MUST match it exactly.
 
 Return ONLY valid JSON (no markdown):
 {
@@ -53,6 +55,8 @@ Options rules:
  *   imageUrl?: string,
  *   imageBase64?: string,
  *   existingHint?: string,
+ *   category?: string,
+ *   collectionTitle?: string,
  * }} input
  */
 export async function generateListing(input) {
@@ -79,6 +83,10 @@ export async function generateListing(input) {
     `Language: ${language}.`,
     `Product name: ${name}`,
     price ? `Price: $${price} USD` : "",
+    input.category ? `Merchant store category (use exactly as product_type): ${input.category}` : "",
+    input.collectionTitle
+      ? `Store collection / section: ${input.collectionTitle} — mention fit for this collection naturally.`
+      : "",
     input.existingHint ? `Existing store context:\n${input.existingHint}` : "",
     hasImage
       ? "Analyze the attached product photo carefully. Describe only what you see. Detect colors, sizes, or style variants if applicable."
@@ -175,7 +183,7 @@ export async function generateListing(input) {
   const jsonText = raw.replace(/^```json\s*|\s*```$/g, "").trim();
   const parsed = JSON.parse(jsonText);
 
-  return normalizeResult(parsed, name);
+  return normalizeResult(parsed, name, input.category);
 }
 
 function resolveImageUrl(input) {
@@ -202,7 +210,7 @@ function dedupeList(list) {
   return out.slice(0, 8);
 }
 
-function normalizeResult(parsed, fallbackName) {
+function normalizeResult(parsed, fallbackName, merchantCategory) {
   const listing = parsed.listing || parsed;
   const analysis = parsed.analysis || {};
   const options = {
@@ -238,7 +246,9 @@ function normalizeResult(parsed, fallbackName) {
     ).slice(0, 160),
     faq_html: faqHtml,
     image_alt: images[0]?.alt || title.slice(0, 125),
-    product_type: String(listing.product_type || analysis.category || "").slice(0, 100),
+    product_type: String(
+      merchantCategory || listing.product_type || analysis.category || ""
+    ).slice(0, 100),
     vendor: String(listing.vendor || "Souso").slice(0, 100),
   };
 

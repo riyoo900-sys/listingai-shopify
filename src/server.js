@@ -156,7 +156,7 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "4.0.0",
+    version: "4.1.0",
     price_usd: PRICE_USD,
     public_url: process.env.SHOPIFY_APP_URL || null,
   };
@@ -250,7 +250,7 @@ function sendAppHtml(res) {
   let html = fs.readFileSync(htmlPath, "utf8");
   const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "";
   html = html.replaceAll("%%SHOPIFY_API_KEY%%", apiKey);
-  html = html.replaceAll("%%APP_VERSION%%", "4.0.0");
+  html = html.replaceAll("%%APP_VERSION%%", "4.1.0");
   res.type("html").send(html);
 }
 
@@ -290,6 +290,71 @@ app.get("/api/me", async (req, res) => {
     usage: usagePayload(getShop(shop)),
     billing_active: Boolean(billing),
   });
+});
+
+app.get("/api/categories", async (req, res) => {
+  try {
+    const shop = normalizeShop(req.query.shop);
+    const row = getShop(shop);
+    if (!row) return res.status(401).json({ error: "Not installed" });
+    const session = await getValidSession(shop);
+    if (!session) {
+      return res.status(401).json({ error: "Shopify session expired. Reinstall the app." });
+    }
+
+    const types = new Set();
+    const collections = [];
+
+    try {
+      const body = await shopifyRest(session, "products", {
+        query: { limit: 250, fields: "id,product_type" },
+      });
+      for (const p of body.products || []) {
+        const t = String(p.product_type || "").trim();
+        if (t) types.add(t);
+      }
+    } catch (e) {
+      console.warn("categories products:", e.message);
+    }
+
+    try {
+      const cc = await shopifyRest(session, "custom_collections", {
+        query: { limit: 250 },
+      });
+      for (const c of cc.custom_collections || []) {
+        collections.push({
+          id: c.id,
+          title: c.title,
+          handle: c.handle || "",
+        });
+      }
+    } catch (e) {
+      console.warn("categories collections:", e.message);
+    }
+
+    const defaults = [
+      "Fashion & Apparel",
+      "Beauty & Skincare",
+      "Jewelry & Watches",
+      "Bags & Accessories",
+      "Shoes & Footwear",
+      "Home & Living",
+      "Electronics & Gadgets",
+      "Sports & Fitness",
+      "Kids & Baby",
+      "Health & Wellness",
+      "Other",
+    ];
+    for (const d of defaults) types.add(d);
+
+    res.json({
+      product_types: [...types].sort((a, b) => a.localeCompare(b)),
+      collections: collections.sort((a, b) => a.title.localeCompare(b.title)),
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message || "Failed to load categories" });
+  }
 });
 
 app.get("/api/products", async (req, res) => {
@@ -347,6 +412,8 @@ app.post("/api/generate", async (req, res) => {
       imageUrl,
       imageBase64,
       productId,
+      category,
+      collectionTitle,
     } = req.body;
 
     let existingHint = "";
@@ -364,6 +431,7 @@ app.post("/api/generate", async (req, res) => {
       if (!productName?.trim()) productName = p.title;
       if (!price) price = p.variants?.[0]?.price || price;
       if (!imageUrl && !imageBase64) imageUrl = img;
+      if (!category?.trim() && p.product_type) category = p.product_type;
       existingHint = [
         `Current title: ${p.title}`,
         p.product_type ? `Type: ${p.product_type}` : "",
@@ -392,11 +460,18 @@ app.post("/api/generate", async (req, res) => {
       });
     }
 
+    const storeCategory = String(category || "").trim();
+    if (!storeCategory) {
+      return res.status(400).json({ error: "Store category is required." });
+    }
+
     const result = await generateListing({
       productName: name,
       productHint: name,
       price: normalizePrice(price),
       language,
+      category: storeCategory,
+      collectionTitle: String(collectionTitle || "").trim(),
       imageUrl: imageUrl?.trim() || "",
       imageBase64: imageBase64?.trim() || "",
       existingHint,
@@ -426,6 +501,8 @@ app.post("/api/publish", async (req, res) => {
       imageUrl,
       imageBase64,
       productId,
+      collectionId,
+      category,
     } = req.body;
     if (!listing?.title)
       return res.status(400).json({ error: "listing.title required" });
@@ -453,6 +530,11 @@ app.post("/api/publish", async (req, res) => {
       return undefined;
     }
 
+    const productType =
+      String(category || listing.product_type || "").trim() ||
+      listing.product_type ||
+      "";
+
     if (productId) {
       let images;
       try {
@@ -474,7 +556,7 @@ app.post("/api/publish", async (req, res) => {
           title: listing.title,
           body_html: bodyHtml,
           tags: listing.tags || "",
-          product_type: listing.product_type || undefined,
+          ...(productType ? { product_type: productType } : {}),
           vendor: listing.vendor || undefined,
           metafields_global_title_tag: listing.metafields_global_title_tag,
           metafields_global_description_tag:
@@ -487,6 +569,18 @@ app.post("/api/publish", async (req, res) => {
         `products/${productId}`,
         payload
       );
+      if (collectionId) {
+        try {
+          await shopifyRestPost(session, "collects", {
+            collect: {
+              product_id: Number(productId),
+              collection_id: Number(collectionId),
+            },
+          });
+        } catch (e) {
+          console.warn("collect update:", e.message);
+        }
+      }
       logPublished(shop, String(productId), "update");
       return res.json({
         product: updated.product,
@@ -500,7 +594,7 @@ app.post("/api/publish", async (req, res) => {
       body_html: bodyHtml,
       tags: listing.tags || "",
       vendor: listing.vendor || "ListingAI",
-      product_type: listing.product_type || "",
+      product_type: productType,
       metafields_global_title_tag: listing.metafields_global_title_tag,
       metafields_global_description_tag:
         listing.metafields_global_description_tag,
@@ -513,7 +607,20 @@ app.post("/api/publish", async (req, res) => {
     const created = await shopifyRestPost(session, "products", {
       product: productPayload,
     });
-    logPublished(shop, String(created.product?.id || ""), "publish");
+    const newId = created.product?.id;
+    if (collectionId && newId) {
+      try {
+        await shopifyRestPost(session, "collects", {
+          collect: {
+            product_id: Number(newId),
+            collection_id: Number(collectionId),
+          },
+        });
+      } catch (e) {
+        console.warn("collect create:", e.message);
+      }
+    }
+    logPublished(shop, String(newId || ""), "publish");
     res.json({ product: created.product, usage: usagePayload(getShop(shop)) });
   } catch (e) {
     console.error(e);
@@ -663,7 +770,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v4.0.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
+    `ListingAI SEO v4.1.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · $${PRICE_USD}/mo`
   );
   cycleStoredTokens();
 });

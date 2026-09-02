@@ -11,6 +11,10 @@ const els = {
   stepDone: document.getElementById("stepDone"),
   productName: document.getElementById("productName"),
   productPrice: document.getElementById("productPrice"),
+  productCategory: document.getElementById("productCategory"),
+  productCategoryCustom: document.getElementById("productCategoryCustom"),
+  collectionSelect: document.getElementById("collectionSelect"),
+  categoryStatus: document.getElementById("categoryStatus"),
   uploadZone: document.getElementById("uploadZone"),
   photoInput: document.getElementById("photoInput"),
   uploadPlaceholder: document.getElementById("uploadPlaceholder"),
@@ -31,6 +35,7 @@ const els = {
   optionsBox: document.getElementById("optionsBox"),
   optionsChips: document.getElementById("optionsChips"),
   outTitle: document.getElementById("outTitle"),
+  outCategory: document.getElementById("outCategory"),
   outSeoTitle: document.getElementById("outSeoTitle"),
   outSeoDesc: document.getElementById("outSeoDesc"),
   outTags: document.getElementById("outTags"),
@@ -44,6 +49,64 @@ let imageBase64 = "";
 let imageDataUrl = "";
 let lastResult = null;
 let activeProductId = null;
+let storeCollections = [];
+
+function selectedCategory() {
+  const custom = els.productCategoryCustom?.value.trim();
+  if (custom) return custom;
+  return els.productCategory?.value.trim() || "";
+}
+
+function selectedCollectionMeta() {
+  const id = els.collectionSelect?.value || "";
+  if (!id) return { id: "", title: "" };
+  const found = storeCollections.find((c) => String(c.id) === String(id));
+  return { id, title: found?.title || "" };
+}
+
+function fillCategorySelect(types) {
+  const keep = els.productCategory.options[0];
+  els.productCategory.innerHTML = "";
+  els.productCategory.appendChild(keep);
+  (types || []).forEach((t) => {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t;
+    els.productCategory.appendChild(opt);
+  });
+}
+
+function fillCollectionSelect(collections) {
+  storeCollections = collections || [];
+  const keep = els.collectionSelect.options[0];
+  els.collectionSelect.innerHTML = "";
+  els.collectionSelect.appendChild(keep);
+  storeCollections.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = String(c.id);
+    opt.textContent = c.title;
+    els.collectionSelect.appendChild(opt);
+  });
+}
+
+async function loadCategories() {
+  if (!shop) return;
+  try {
+    const data = await api("/api/categories");
+    fillCategorySelect(data.product_types || []);
+    fillCollectionSelect(data.collections || []);
+    if (els.categoryStatus) {
+      const n = (data.product_types || []).length;
+      const c = (data.collections || []).length;
+      els.categoryStatus.textContent =
+        n || c
+          ? `${n} categories · ${c} collections from your store`
+          : "Choose a category or type your own below";
+    }
+  } catch (e) {
+    if (els.categoryStatus) els.categoryStatus.textContent = e.message;
+  }
+}
 
 async function api(path, opts = {}) {
   const url = path.includes("?") ? path : `${path}?shop=${encodeURIComponent(shop)}`;
@@ -188,6 +251,8 @@ function renderAnalysis(analysis) {
 function fillPreview(data) {
   const listing = data.listing || {};
   els.outTitle.value = listing.title || "";
+  els.outCategory.value =
+    listing.product_type || selectedCategory() || data.analysis?.category || "";
   els.outSeoTitle.value = listing.metafields_global_title_tag || "";
   els.outSeoDesc.value = listing.metafields_global_description_tag || "";
   els.outTags.value = listing.tags || "";
@@ -206,7 +271,7 @@ function currentListing() {
     metafields_global_description_tag: els.outSeoDesc.value.trim(),
     image_alt: els.outAlt.value.trim(),
     faq_html: "",
-    product_type: lastResult?.listing?.product_type || "",
+    product_type: els.outCategory?.value.trim() || lastResult?.listing?.product_type || "",
     vendor: lastResult?.listing?.vendor || "",
   };
 }
@@ -246,6 +311,7 @@ async function loadProducts() {
       opt.dataset.title = p.title;
       opt.dataset.price = p.price || "";
       opt.dataset.image = p.image || "";
+      opt.dataset.type = p.product_type || "";
       els.existingSelect.appendChild(opt);
     });
     if (els.catalogStatus) {
@@ -264,6 +330,15 @@ els.existingSelect?.addEventListener("change", () => {
   if (!activeProductId) return;
   if (opt.dataset.title) els.productName.value = opt.dataset.title;
   if (opt.dataset.price) els.productPrice.value = opt.dataset.price;
+  if (opt.dataset.type) {
+    const t = opt.dataset.type;
+    if ([...els.productCategory.options].some((o) => o.value === t)) {
+      els.productCategory.value = t;
+      els.productCategoryCustom.value = "";
+    } else {
+      els.productCategoryCustom.value = t;
+    }
+  }
   if (opt.dataset.image) {
     imageBase64 = opt.dataset.image;
     imageDataUrl = opt.dataset.image;
@@ -292,7 +367,7 @@ async function loadMe() {
   try {
     const data = await api("/api/me");
     updateUsage(data.usage);
-    await loadProducts();
+    await Promise.all([loadProducts(), loadCategories()]);
   } catch (e) {
     const msg = e.message || "Could not connect store";
     els.usageLine.textContent = msg;
@@ -321,6 +396,12 @@ els.btnCreate?.addEventListener("click", async () => {
     els.productPrice.focus();
     return;
   }
+  const category = selectedCategory();
+  if (!category) {
+    els.error.textContent = "Choose or type a store category for this product.";
+    els.productCategory?.focus();
+    return;
+  }
   if (!hasPhoto()) {
     els.error.textContent =
       "Upload a product photo (or pick an existing product with an image).";
@@ -330,12 +411,15 @@ els.btnCreate?.addEventListener("click", async () => {
   els.btnCreate.disabled = true;
   els.btnCreate.textContent = "Analyzing photo & writing listing…";
   try {
+    const coll = selectedCollectionMeta();
     const img = imagePayload();
     const data = await api("/api/generate", {
       method: "POST",
       body: {
         productName: name,
         price,
+        category,
+        collectionTitle: coll.title,
         language: els.language.value,
         imageBase64: img.imageBase64,
         imageUrl: img.imageUrl,
@@ -367,12 +451,15 @@ els.btnPublish?.addEventListener("click", async () => {
   els.btnPublish.textContent = "Publishing…";
   try {
     const img = imagePayload();
+    const coll = selectedCollectionMeta();
     const data = await api("/api/publish", {
       method: "POST",
       body: {
         listing: currentListing(),
         options: lastResult?.options || {},
         price: els.productPrice.value.trim(),
+        category: els.outCategory?.value.trim() || selectedCategory(),
+        collectionId: coll.id || null,
         imageBase64: img.imageBase64,
         imageUrl: img.imageUrl,
         productId: activeProductId,
@@ -398,6 +485,9 @@ els.btnPublish?.addEventListener("click", async () => {
 els.btnNew?.addEventListener("click", () => {
   els.productName.value = "";
   els.productPrice.value = "";
+  els.productCategory.value = "";
+  els.productCategoryCustom.value = "";
+  els.collectionSelect.value = "";
   clearPhoto();
   activeProductId = null;
   els.existingSelect.value = "";
