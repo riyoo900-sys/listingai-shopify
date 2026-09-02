@@ -1,5 +1,9 @@
 const params = new URLSearchParams(location.search);
-const PRICE = 7.99;
+
+const DEFAULT_PLANS = {
+  starter: { price: 4.99, limit: 50 },
+  pro: { price: 7.99, limit: null },
+};
 
 function normalizeShopClient(raw) {
   let s = String(raw || "")
@@ -74,7 +78,10 @@ const els = {
   outAlt: document.getElementById("outAlt"),
   outBody: document.getElementById("outBody"),
   upgradeCard: document.getElementById("upgradeCard"),
-  btnUpgrade: document.getElementById("btnUpgrade"),
+  btnUpgradeStarter: document.getElementById("btnUpgradeStarter"),
+  btnUpgradePro: document.getElementById("btnUpgradePro"),
+  planStarter: document.getElementById("planStarter"),
+  planPro: document.getElementById("planPro"),
 };
 
 let imageBase64 = "";
@@ -190,19 +197,50 @@ function setStep(n) {
   els.stepDone.classList.toggle("hidden", n !== 3);
 }
 
+function planPrices(usage) {
+  return {
+    starter: usage?.plans?.starter || DEFAULT_PLANS.starter,
+    pro: usage?.plans?.pro || DEFAULT_PLANS.pro,
+  };
+}
+
 function updateUsage(usage) {
   if (!usage) return;
+  const { starter, pro } = planPrices(usage);
+
   if (usage.plan === "pro") {
     els.planBadge.textContent = "Pro";
-    els.usageLine.textContent = `Unlimited listings · Pro $${PRICE}/mo`;
+    els.usageLine.textContent = `Unlimited listings · Pro $${pro.price}/mo`;
     els.upgradeCard.classList.add("hidden");
     return;
   }
+
+  if (usage.plan === "starter") {
+    els.planBadge.textContent = "Starter";
+    const left = usage.remaining ?? 0;
+    const cap = usage.plan_limit ?? starter.limit ?? 50;
+    els.usageLine.textContent = `${left} of ${cap} listings left this month · Starter $${starter.price}/mo`;
+    if (left <= 0) {
+      els.upgradeCard.classList.remove("hidden");
+      els.planStarter?.classList.add("hidden");
+      els.planPro?.classList.remove("hidden");
+    } else {
+      els.upgradeCard.classList.add("hidden");
+    }
+    return;
+  }
+
   els.planBadge.textContent = "Free";
   const left = usage.remaining ?? 0;
   const cap = usage.free_limit ?? 25;
-  els.usageLine.textContent = `${left} free listings left · then $${PRICE}/mo`;
-  if (left <= 0) els.upgradeCard.classList.remove("hidden");
+  els.usageLine.textContent = `${left} of ${cap} free listings left · from $${starter.price}/mo`;
+  if (left <= 0) {
+    els.upgradeCard.classList.remove("hidden");
+    els.planStarter?.classList.remove("hidden");
+    els.planPro?.classList.remove("hidden");
+  } else {
+    els.upgradeCard.classList.add("hidden");
+  }
 }
 
 function readFileAsDataUrl(file) {
@@ -576,10 +614,13 @@ els.btnNew?.addEventListener("click", () => {
   setStep(1);
 });
 
-els.btnUpgrade?.addEventListener("click", () => {
-  const url = `/billing/start?shop=${encodeURIComponent(shop)}`;
+function goBilling(planId) {
+  const url = `/billing/start?shop=${encodeURIComponent(shop)}&plan=${encodeURIComponent(planId)}`;
   if (window.top && window.top !== window) window.top.location.href = url;
   else location.href = url;
-});
+}
+
+els.btnUpgradeStarter?.addEventListener("click", () => goBilling("starter"));
+els.btnUpgradePro?.addEventListener("click", () => goBilling("pro"));
 
 loadMe();
