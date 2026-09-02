@@ -73,10 +73,36 @@ export function setShopPlan(shop, plan, chargeId = null) {
   save(data);
 }
 
+function currentMonthKey() {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export function ensureMonthlyRow(shop) {
+  const data = load();
+  const row = data.shops[shop];
+  if (!row) return null;
+  const key = currentMonthKey();
+  if (row.monthly_key !== key) {
+    row.monthly_key = key;
+    row.monthly_listings_used = 0;
+    row.updated_at = new Date().toISOString();
+    save(data);
+  }
+  return getShop(shop);
+}
+
 export function incrementListingUsage(shop) {
   const data = load();
   if (!data.shops[shop]) return;
+  const key = currentMonthKey();
+  if (data.shops[shop].monthly_key !== key) {
+    data.shops[shop].monthly_key = key;
+    data.shops[shop].monthly_listings_used = 0;
+  }
   data.shops[shop].listings_used = (data.shops[shop].listings_used || 0) + 1;
+  data.shops[shop].monthly_listings_used =
+    (data.shops[shop].monthly_listings_used || 0) + 1;
   data.shops[shop].updated_at = new Date().toISOString();
   data.logs.push({
     shop,
