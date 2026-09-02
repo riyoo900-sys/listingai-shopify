@@ -1,8 +1,39 @@
 const params = new URLSearchParams(location.search);
-const shop = params.get("shop") || "";
 const PRICE = 7.99;
 
+function normalizeShopClient(raw) {
+  let s = String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "");
+  if (!s) return "";
+  if (!s.includes(".")) s = `${s}.myshopify.com`;
+  return s;
+}
+
+function resolveShop() {
+  const fromUrl = params.get("shop") || "";
+  if (fromUrl) return normalizeShopClient(fromUrl);
+  try {
+    const saved = sessionStorage.getItem("listingai_shop");
+    if (saved) return normalizeShopClient(saved);
+  } catch {
+    /* ignore */
+  }
+  if (typeof window.shopify !== "undefined" && window.shopify?.config?.shop) {
+    return normalizeShopClient(window.shopify.config.shop);
+  }
+  return "";
+}
+
+let shop = resolveShop();
+let storeConnected = false;
+
 const els = {
+  connectCard: document.getElementById("connectCard"),
+  shopInput: document.getElementById("shopInput"),
+  btnConnect: document.getElementById("btnConnect"),
   usageLine: document.getElementById("usageLine"),
   planBadge: document.getElementById("planBadge"),
   stepsBar: document.getElementById("stepsBar"),
@@ -120,15 +151,32 @@ async function loadCategories() {
 }
 
 async function api(path, opts = {}) {
-  const url = path.includes("?") ? path : `${path}?shop=${encodeURIComponent(shop)}`;
+  const activeShop = shop || resolveShop();
+  const url = path.includes("?")
+    ? path
+    : `${path}?shop=${encodeURIComponent(activeShop)}`;
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
     ...opts,
-    body: opts.body ? JSON.stringify({ ...opts.body, shop }) : undefined,
+    body: opts.body
+      ? JSON.stringify({ ...opts.body, shop: activeShop })
+      : undefined,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
+}
+
+function setStoreConnected(ok) {
+  storeConnected = ok;
+  if (els.connectCard) els.connectCard.hidden = ok;
+  if (els.stepProduct) els.stepProduct.classList.toggle("is-disabled", !ok);
+  if (els.btnCreate) els.btnCreate.disabled = !ok;
+}
+
+function showConnectMessage(msg) {
+  if (els.usageLine) els.usageLine.textContent = msg;
+  setStoreConnected(false);
 }
 
 function setStep(n) {
@@ -357,44 +405,69 @@ els.existingSelect?.addEventListener("change", () => {
   }
 });
 
-function installUrl() {
+function goInstall(targetShop) {
+  const s = normalizeShopClient(targetShop || shop);
+  if (!s) return;
+  shop = s;
   const host = params.get("host") || "";
-  const q = new URLSearchParams({ shop });
+  const q = new URLSearchParams({ shop: s });
   if (host) q.set("host", host);
-  return `${location.origin}/auth?${q.toString()}`;
-}
-
-function goInstall() {
-  const url = installUrl();
+  const url = `${location.origin}/auth?${q.toString()}`;
   if (window.top && window.top !== window) window.top.location.href = url;
   else location.href = url;
 }
 
+els.btnConnect?.addEventListener("click", () => {
+  const raw = els.shopInput?.value.trim() || shop;
+  if (!raw) {
+    if (els.error) els.error.textContent = "Enter your store: example.myshopify.com";
+    els.shopInput?.focus();
+    return;
+  }
+  if (els.error) els.error.textContent = "";
+  goInstall(raw);
+});
+
 async function loadMe() {
+  shop = resolveShop();
+  if (els.shopInput && shop) els.shopInput.value = shop;
+
   if (!shop) {
-    els.usageLine.textContent = "Open from Shopify Admin → Apps → ListingAI SEO";
+    showConnectMessage("Connect your Shopify store to create listings.");
     return;
   }
   try {
     const data = await api("/api/me");
+    try {
+      sessionStorage.setItem("listingai_shop", shop);
+    } catch {
+      /* ignore */
+    }
+    setStoreConnected(true);
+    if (els.usageLine) els.usageLine.textContent = `Connected · ${shop}`;
     updateUsage(data.usage);
     await Promise.all([loadProducts(), loadCategories()]);
   } catch (e) {
     const msg = e.message || "Could not connect store";
-    els.usageLine.textContent = msg;
-    if (/not installed|expired|reinstall/i.test(msg)) {
-      els.usageLine.innerHTML =
-        'Store not connected. <a href="#" id="btnReconnect">Install / reconnect</a>';
-      document.getElementById("btnReconnect")?.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        goInstall();
-      });
+    showConnectMessage(msg === "Not installed" ? "Store not installed yet — click Connect below." : msg);
+    if (els.error) {
+      els.error.textContent =
+        msg === "Not installed"
+          ? "Install the app on your store first, then come back here."
+          : msg;
     }
   }
 }
 
 els.btnCreate?.addEventListener("click", async () => {
   els.error.textContent = "";
+  shop = resolveShop();
+  if (!shop || !storeConnected) {
+    els.error.textContent =
+      "Connect your Shopify store first — enter example.myshopify.com above.";
+    els.connectCard?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   const name = els.productName.value.trim();
   const price = els.productPrice.value.trim();
   if (!name) {

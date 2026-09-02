@@ -26,6 +26,17 @@ header { display: flex; align-items: center; justify-content: space-between; mar
 .hero-sub { color: var(--muted); margin: 0 0 8px; }
 .usage { font-size: 0.875rem; color: var(--accent2) !important; }
 
+.connect-card {
+  border-color: #5b8def55;
+  margin-top: 14px;
+}
+.connect-card h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.connect-tip { margin: 12px 0 0; font-size: 0.82rem; }
+.card-main.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .steps {
   display: flex; gap: 8px; margin: 18px 0 14px; flex-wrap: wrap;
 }
