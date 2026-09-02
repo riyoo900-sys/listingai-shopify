@@ -155,9 +155,20 @@
     </section>
 
     <section class="card upgrade hidden" id="upgradeCard">
-      <h2>Upgrade to Pro — $7.99/mo</h2>
-      <p>Unlimited professional listings · 7-day trial</p>
-      <button type="button" class="btn primary" id="btnUpgrade">Start Pro plan</button>
+      <h2>Choose a plan</h2>
+      <p class="muted">7-day free trial · cancel anytime in Shopify</p>
+      <div class="plan-grid">
+        <div class="plan-option" id="planStarter">
+          <h3>Starter — $4.99/mo</h3>
+          <p>50 AI listings per month</p>
+          <button type="button" class="btn primary" id="btnUpgradeStarter">Start Starter</button>
+        </div>
+        <div class="plan-option plan-option-featured" id="planPro">
+          <h3>Pro — $7.99/mo</h3>
+          <p>Unlimited listings</p>
+          <button type="button" class="btn primary" id="btnUpgradePro">Start Pro</button>
+        </div>
+      </div>
     </section>
   </div>
   <script src="/app.js?v=%%APP_VERSION%%"></script>
