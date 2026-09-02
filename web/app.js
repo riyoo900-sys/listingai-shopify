@@ -60,6 +60,7 @@ const els = {
   btnPublish: document.getElementById("btnPublish"),
   btnNew: document.getElementById("btnNew"),
   btnOpenShopify: document.getElementById("btnOpenShopify"),
+  doneMessage: document.getElementById("doneMessage"),
   error: document.getElementById("error"),
   errorPublish: document.getElementById("errorPublish"),
   analysisBox: document.getElementById("analysisBox"),
@@ -521,9 +522,9 @@ els.btnCreate?.addEventListener("click", async () => {
 els.btnBack?.addEventListener("click", () => setStep(1));
 
 els.btnPublish?.addEventListener("click", async () => {
-  els.errorPublish.textContent = "";
+  if (els.errorPublish) els.errorPublish.textContent = "";
   if (!currentListing().title) {
-    els.errorPublish.textContent = "Title is required.";
+    if (els.errorPublish) els.errorPublish.textContent = "Title is required.";
     return;
   }
   els.btnPublish.disabled = true;
@@ -545,16 +546,17 @@ els.btnPublish?.addEventListener("click", async () => {
       },
     });
     const pid = data.product?.id;
-    els.doneMessage.textContent = data.updated
-      ? "Product updated with professional SEO copy ✓"
-      : "New product published with title, description, SEO, variants & image ✓";
-    if (pid && shop) {
-      const store = shop.replace(".myshopify.com", "");
-      els.btnOpenShopify.href = `https://admin.shopify.com/store/${store}/products/${pid}`;
+    if (els.doneMessage) {
+      els.doneMessage.textContent = data.updated
+        ? "Product updated with professional SEO copy ✓"
+        : "New product published with title, description, SEO, variants & image ✓";
+    }
+    if (pid && shop && els.btnOpenShopify) {
+      els.btnOpenShopify.href = `https://${shop}/admin/products/${pid}`;
     }
     setStep(3);
   } catch (e) {
-    els.errorPublish.textContent = e.message;
+    if (els.errorPublish) els.errorPublish.textContent = e.message || "Publish failed";
   } finally {
     els.btnPublish.disabled = false;
     els.btnPublish.textContent = "Publish to Shopify";
