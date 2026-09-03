@@ -140,3 +140,27 @@ textarea { resize: vertical; min-height: 80px; }
 
 .success-card { border-color: #3dd68c55; text-align: center; }
 .success-card h2 { color: var(--accent2); font-size: 1.3rem; }
+
+
+.features-strip {
+  display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px;
+}
+.feature-pill {
+  padding: 6px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+  background: #1a2433; border: 1px solid var(--border); color: var(--muted);
+}
+.variation-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 10px; }
+.var-tab {
+  padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border);
+  background: #151c27; color: var(--text); font-size: 0.85rem; cursor: pointer;
+}
+.var-tab.active { border-color: var(--accent); background: #1c2a3f; font-weight: 600; }
+.seo-score-badge {
+  display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px;
+  padding: 6px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+  background: #13281f; border: 1px solid #3dd68c55; color: var(--accent2);
+}
+.tags-field { margin-bottom: 4px; }
+.tags-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tags-chips .chip { padding: 4px 10px; border-radius: 999px; font-size: 0.78rem; background: #243044; border: 1px solid var(--border); }
+.char-count { float: right; font-size: 0.75rem; color: var(--muted); font-weight: 500; }
