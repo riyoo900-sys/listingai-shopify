@@ -148,7 +148,8 @@ function canGenerate(row) {
   if (fresh.plan === "starter") {
     return (fresh.monthly_listings_used || 0) < PLANS.starter.limit;
   }
-  return (fresh.listings_used || 0) < FREE_LIMIT;
+  // Permanent free plan — monthly quota (resets each month)
+  return (fresh.monthly_listings_used || 0) < FREE_LIMIT;
 }
 
 function usagePayload(row) {
@@ -183,13 +184,14 @@ function usagePayload(row) {
     };
   }
 
+  const used = fresh.monthly_listings_used || 0;
   return {
     plan: "free",
     listings_used: fresh.listings_used || 0,
     free_limit: FREE_LIMIT,
-    plan_limit: null,
-    monthly_used: fresh.monthly_listings_used || 0,
-    remaining: Math.max(0, FREE_LIMIT - (fresh.listings_used || 0)),
+    plan_limit: FREE_LIMIT,
+    monthly_used: used,
+    remaining: Math.max(0, FREE_LIMIT - used),
     plans,
   };
 }
@@ -198,9 +200,10 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "4.3.0",
+    version: "4.3.1",
     plans: plansForClient(),
     free_limit: FREE_LIMIT,
+    free_monthly: true,
     public_url: process.env.SHOPIFY_APP_URL || null,
   };
 }
@@ -293,7 +296,7 @@ function sendAppHtml(res) {
   let html = fs.readFileSync(htmlPath, "utf8");
   const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "";
   html = html.replaceAll("%%SHOPIFY_API_KEY%%", apiKey);
-  html = html.replaceAll("%%APP_VERSION%%", "4.3.0");
+  html = html.replaceAll("%%APP_VERSION%%", "4.3.1");
   res.type("html").send(html);
 }
 
@@ -451,7 +454,7 @@ app.post("/api/generate", async (req, res) => {
       const msg =
         fresh?.plan === "starter"
           ? "Starter monthly limit reached (50 listings). Upgrade to Pro for unlimited."
-          : "Free limit reached";
+          : "Free monthly limit reached. Upgrade for more, or wait until next month.";
       return res.status(402).json({
         error: msg,
         usage,
@@ -825,7 +828,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v4.3.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · Starter $${PLANS.starter.price} · Pro $${PLANS.pro.price} · ${PLANS.pro.trial_days}d trial`
+    `ListingAI SEO v4.3.1 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · Free ${FREE_LIMIT}/mo · Starter $${PLANS.starter.price} · Pro $${PLANS.pro.price}`
   );
   cycleStoredTokens();
 });
