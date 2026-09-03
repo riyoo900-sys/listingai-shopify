@@ -141,26 +141,63 @@ textarea { resize: vertical; min-height: 80px; }
 .success-card { border-color: #3dd68c55; text-align: center; }
 .success-card h2 { color: var(--accent2); font-size: 1.3rem; }
 
-
 .features-strip {
-  display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px;
+  display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px;
 }
 .feature-pill {
-  padding: 6px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 600;
-  background: #1a2433; border: 1px solid var(--border); color: var(--muted);
+  font-size: 0.78rem; font-weight: 600; padding: 6px 12px;
+  border-radius: 999px; background: #1a2a3d; border: 1px solid #5b8def44;
+  color: var(--accent);
 }
-.variation-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 10px; }
-.var-tab {
-  padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border);
-  background: #151c27; color: var(--text); font-size: 0.85rem; cursor: pointer;
+
+.variation-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 10px;
 }
-.var-tab.active { border-color: var(--accent); background: #1c2a3f; font-weight: 600; }
+.variation-header h2 { margin: 0; }
 .seo-score-badge {
-  display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px;
-  padding: 6px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
-  background: #13281f; border: 1px solid #3dd68c55; color: var(--accent2);
+  font-size: 0.82rem; font-weight: 700; padding: 6px 12px;
+  border-radius: 999px; background: #123524; color: var(--accent2);
+  border: 1px solid #3dd68c55; white-space: nowrap;
 }
-.tags-field { margin-bottom: 4px; }
-.tags-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.tags-chips .chip { padding: 4px 10px; border-radius: 999px; font-size: 0.78rem; background: #243044; border: 1px solid var(--border); }
-.char-count { float: right; font-size: 0.75rem; color: var(--muted); font-weight: 500; }
+.variation-tabs {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.var-tab {
+  border: 1px solid var(--border); background: #111820; color: var(--muted);
+  padding: 8px 14px; border-radius: 10px; font-weight: 600; font-size: 0.85rem;
+  cursor: pointer;
+}
+.var-tab.is-active {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.var-tab .var-score {
+  display: block; font-size: 0.72rem; font-weight: 500; opacity: 0.85; margin-top: 2px;
+}
+
+.field-with-count {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-top: 10px;
+}
+.field-with-count label { margin-bottom: 6px; }
+.char-count { font-size: 0.72rem; color: var(--muted); }
+
+.tags-field {
+  background: #111820; border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 10px;
+}
+.tags-chips {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 8px;
+}
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px; font-size: 0.8rem;
+  background: #243044; border: 1px solid var(--border); color: var(--text);
+}
+.tag-chip button {
+  border: 0; background: transparent; color: var(--muted);
+  cursor: pointer; font-size: 0.9rem; padding: 0; line-height: 1;
+}
+.tags-field input {
+  border: 0; background: transparent; padding: 6px 0;
+}
