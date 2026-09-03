@@ -1,6 +1,15 @@
 export const FREE_LIMIT = Number(process.env.LISTINGAI_FREE_LISTINGS || 25);
 export const TRIAL_DAYS = Number(process.env.LISTINGAI_TRIAL_DAYS || 15);
 
+/** Permanent free plan — resets every calendar month (like Descriva / OptiLayer). */
+export const FREE_PLAN = {
+  id: "free",
+  name: "ListingAI SEO Free",
+  price: 0,
+  limit: FREE_LIMIT,
+  monthly: true,
+};
+
 export const PLANS = {
   starter: {
     id: "starter",
@@ -36,6 +45,12 @@ export function planFromChargePrice(price) {
 
 export function plansForClient() {
   return {
+    free: {
+      price: 0,
+      limit: FREE_PLAN.limit,
+      name: FREE_PLAN.name,
+      monthly: true,
+    },
     starter: {
       price: PLANS.starter.price,
       limit: PLANS.starter.limit,
