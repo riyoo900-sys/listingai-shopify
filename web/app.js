@@ -77,27 +77,27 @@ const els = {
   outTags: document.getElementById("outTags"),
   outAlt: document.getElementById("outAlt"),
   outBody: document.getElementById("outBody"),
-  upgradeCard: document.getElementById("upgradeCard"),
-  btnUpgradeStarter: document.getElementById("btnUpgradeStarter"),
-  btnUpgradePro: document.getElementById("btnUpgradePro"),
-  planStarter: document.getElementById("planStarter"),
-  planPro: document.getElementById("planPro"),
   variationTabs: document.getElementById("variationTabs"),
   seoScoreBadge: document.getElementById("seoScoreBadge"),
-  seoScoreValue: document.getElementById("seoScoreValue"),
   tagsChips: document.getElementById("tagsChips"),
   countTitle: document.getElementById("countTitle"),
   countSeoTitle: document.getElementById("countSeoTitle"),
   countSeoDesc: document.getElementById("countSeoDesc"),
   countTags: document.getElementById("countTags"),
+  trialLine: document.getElementById("trialLine"),
+  upgradeCard: document.getElementById("upgradeCard"),
+  btnUpgradeStarter: document.getElementById("btnUpgradeStarter"),
+  btnUpgradePro: document.getElementById("btnUpgradePro"),
+  planStarter: document.getElementById("planStarter"),
+  planPro: document.getElementById("planPro"),
 };
 
 let imageBase64 = "";
 let imageDataUrl = "";
 let lastResult = null;
-let activeVariationIndex = 0;
 let activeProductId = null;
 let storeCollections = [];
+let activeVariationIndex = 0;
 
 const CATEGORY_ALL = "__all__";
 
@@ -216,9 +216,10 @@ function planPrices(usage) {
 function updateUsage(usage) {
   if (!usage) return;
   const { starter, pro } = planPrices(usage);
-  const trialDays = usage?.plans?.trial_days || 15;
-  const trialEl = document.querySelector("#upgradeCard .muted");
-  if (trialEl) trialEl.textContent = trialDays + "-day free trial ? cancel anytime in Shopify";
+  const trialDays = usage.plans?.trial_days || 15;
+  if (els.trialLine) {
+    els.trialLine.textContent = `${trialDays}-day free trial · cancel anytime in Shopify`;
+  }
 
   if (usage.plan === "pro") {
     els.planBadge.textContent = "Pro";
@@ -245,7 +246,7 @@ function updateUsage(usage) {
   els.planBadge.textContent = "Free";
   const left = usage.remaining ?? 0;
   const cap = usage.free_limit ?? 25;
-  els.usageLine.textContent = `${left} of ${cap} free listings left · from $${starter.price}/mo`;
+  els.usageLine.textContent = `${left} of ${cap} free listings left · ${trialDays}-day trial on paid plans`;
   if (left <= 0) {
     els.upgradeCard.classList.remove("hidden");
     els.planStarter?.classList.remove("hidden");
@@ -358,113 +359,99 @@ function renderAnalysis(analysis) {
   `;
 }
 
-
-function saveCurrentVariation() {
-  if (!lastResult) return;
-  const vars = lastResult.variations || [lastResult.listing];
-  if (!vars[activeVariationIndex]) return;
-  const cur = currentListing();
-  vars[activeVariationIndex] = {
-    ...vars[activeVariationIndex],
-    ...cur,
-    body_html: cur.body_html,
-  };
-  lastResult.variations = vars;
-  lastResult.listing = vars[activeVariationIndex];
+function parseTags(raw) {
+  return String(raw || "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .slice(0, 15);
 }
 
 function renderTagsChips(tagsStr) {
+  const tags = parseTags(tagsStr);
+  if (els.countTags) els.countTags.textContent = `${tags.length}/15`;
   if (!els.tagsChips) return;
-  const tags = String(tagsStr || "")
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
-  els.tagsChips.innerHTML = tags.map((t) => '<span class="chip">' + t + "</span>").join("");
-  if (els.countTags)
-    els.countTags.textContent = tags.length + " tags ? " + String(tagsStr || "").length + " chars";
+  els.tagsChips.innerHTML = tags
+    .map(
+      (t, i) =>
+        `<span class="tag-chip">${escapeHtml(t)}<button type="button" data-tag-i="${i}" aria-label="Remove">×</button></span>`
+    )
+    .join("");
 }
 
 function updateCharCounts() {
-  if (els.countTitle) els.countTitle.textContent = (els.outTitle?.value || "").length + "/70";
-  if (els.countSeoTitle)
-    els.countSeoTitle.textContent = (els.outSeoTitle?.value || "").length + "/60";
-  if (els.countSeoDesc)
-    els.countSeoDesc.textContent = (els.outSeoDesc?.value || "").length + "/155";
-  renderTagsChips(els.outTags?.value || "");
+  if (els.countTitle) els.countTitle.textContent = `${(els.outTitle?.value || "").length}/200`;
+  if (els.countSeoTitle) els.countSeoTitle.textContent = `${(els.outSeoTitle?.value || "").length}/70`;
+  if (els.countSeoDesc) els.countSeoDesc.textContent = `${(els.outSeoDesc?.value || "").length}/160`;
+  if (els.countTags) els.countTags.textContent = `${parseTags(els.outTags?.value).length}/15`;
 }
 
-function applyVariationToForm(listing) {
+function saveCurrentVariation() {
+  if (!lastResult?.variations?.length) return;
+  const i = activeVariationIndex;
+  if (!lastResult.variations[i]) return;
+  lastResult.variations[i] = {
+    ...lastResult.variations[i],
+    ...currentListing(),
+  };
+  lastResult.listing = lastResult.variations[i];
+}
+
+function applyVariation(listing) {
   if (!listing) return;
   els.outTitle.value = listing.title || "";
-  els.outCategory.value = listing.product_type || els.outCategory.value || "";
+  els.outCategory.value =
+    listing.product_type || selectedCategory() || lastResult?.analysis?.category || "";
   els.outSeoTitle.value = listing.metafields_global_title_tag || "";
   els.outSeoDesc.value = listing.metafields_global_description_tag || "";
   els.outTags.value = listing.tags || "";
   els.outAlt.value = listing.image_alt || "";
-  els.outBody.value = [listing.body_html || "", listing.faq_html || ""]
-    .filter(Boolean)
-    .join("\n\n");
-  if (els.seoScoreBadge && els.seoScoreValue) {
-    const score = listing.seo_score;
-    if (score != null) {
-      els.seoScoreBadge.classList.remove("hidden");
-      els.seoScoreValue.textContent = String(score);
-    } else {
-      els.seoScoreBadge.classList.add("hidden");
-    }
-  }
+  els.outBody.value = [listing.body_html || "", listing.faq_html || ""].filter(Boolean).join("\n\n");
+  renderTagsChips(listing.tags || "");
   updateCharCounts();
+  if (els.seoScoreBadge) {
+    const score = listing.seo_score != null ? listing.seo_score : "—";
+    els.seoScoreBadge.textContent = `SEO ${score}/100`;
+  }
 }
 
-function renderVariationTabs(variations) {
+function renderVariationTabs() {
+  const vars = lastResult?.variations || [];
   if (!els.variationTabs) return;
-  const vars = variations || [];
   if (vars.length < 2) {
     els.variationTabs.innerHTML = "";
     return;
   }
   els.variationTabs.innerHTML = vars
     .map((v, i) => {
-      const best = i === 0 || v.best_for_seo ? " ?" : "";
-      return (
-        '<button type="button" class="var-tab' +
-        (i === activeVariationIndex ? " active" : "") +
-        '" data-var="' +
-        i +
-        '">Version ' +
-        (i + 1) +
-        best +
-        "</button>"
-      );
+      const label = v.style_label || `Version ${i + 1}`;
+      const score = v.seo_score != null ? v.seo_score : "—";
+      return `<button type="button" class="var-tab${i === activeVariationIndex ? " is-active" : ""}" data-var="${i}">
+        ${escapeHtml(label)}
+        <span class="var-score">SEO ${score}/100</span>
+      </button>`;
     })
     .join("");
-  els.variationTabs.querySelectorAll(".var-tab").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const idx = Number(btn.dataset.var);
-      if (idx === activeVariationIndex) return;
-      saveCurrentVariation();
-      activeVariationIndex = idx;
-      const vars2 = lastResult?.variations || [];
-      applyVariationToForm(vars2[idx]);
-      lastResult.listing = vars2[idx];
-      renderVariationTabs(vars2);
-    });
-  });
+}
+
+function selectVariation(index) {
+  if (!lastResult?.variations?.[index]) return;
+  saveCurrentVariation();
+  activeVariationIndex = index;
+  applyVariation(lastResult.variations[index]);
+  lastResult.listing = lastResult.variations[index];
+  renderVariationTabs();
 }
 
 function fillPreview(data) {
   lastResult = data;
-  const variations =
-    Array.isArray(data.variations) && data.variations.length
-      ? data.variations
-      : [data.listing || {}];
-  lastResult.variations = variations;
   activeVariationIndex = 0;
-  applyVariationToForm(variations[0]);
-  lastResult.listing = variations[0];
-  renderVariationTabs(variations);
+  const vars = data.variations?.length ? data.variations : data.listing ? [data.listing] : [];
+  if (!data.variations?.length && data.listing) lastResult.variations = vars;
   renderAnalysis(data.analysis);
   renderOptions(data.options);
+  renderVariationTabs();
+  applyVariation(vars[0] || data.listing || {});
 }
 
 function currentListing() {
@@ -478,6 +465,8 @@ function currentListing() {
     faq_html: "",
     product_type: els.outCategory?.value.trim() || lastResult?.listing?.product_type || "",
     vendor: lastResult?.listing?.vendor || "",
+    seo_score: lastResult?.variations?.[activeVariationIndex]?.seo_score,
+    style_label: lastResult?.variations?.[activeVariationIndex]?.style_label,
   };
 }
 
@@ -633,7 +622,7 @@ els.btnCreate?.addEventListener("click", async () => {
   }
 
   els.btnCreate.disabled = true;
-  els.btnCreate.textContent = "Analyzing photo & writing listing…";
+  els.btnCreate.textContent = "Analyzing photo & writing 3 SEO variations…";
   try {
     const coll = selectedCollectionMeta();
     const img = imagePayload();
@@ -660,13 +649,36 @@ els.btnCreate?.addEventListener("click", async () => {
     if (/limit/i.test(e.message)) els.upgradeCard.classList.remove("hidden");
   } finally {
     els.btnCreate.disabled = false;
-    els.btnCreate.textContent = "Create professional listing";
+    els.btnCreate.textContent = "Generate listings with AI";
   }
 });
 
 els.btnBack?.addEventListener("click", () => setStep(1));
 
+els.variationTabs?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-var]");
+  if (!btn) return;
+  selectVariation(Number(btn.dataset.var));
+});
+
+els.tagsChips?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-tag-i]");
+  if (!btn) return;
+  const tags = parseTags(els.outTags.value);
+  tags.splice(Number(btn.dataset.tagI), 1);
+  els.outTags.value = tags.join(", ");
+  renderTagsChips(els.outTags.value);
+});
+
+els.outTags?.addEventListener("input", () => {
+  renderTagsChips(els.outTags.value);
+});
+els.outTitle?.addEventListener("input", updateCharCounts);
+els.outSeoTitle?.addEventListener("input", updateCharCounts);
+els.outSeoDesc?.addEventListener("input", updateCharCounts);
+
 els.btnPublish?.addEventListener("click", async () => {
+  saveCurrentVariation();
   if (els.errorPublish) els.errorPublish.textContent = "";
   if (!currentListing().title) {
     if (els.errorPublish) els.errorPublish.textContent = "Title is required.";
@@ -693,8 +705,8 @@ els.btnPublish?.addEventListener("click", async () => {
     const pid = data.product?.id;
     if (els.doneMessage) {
       els.doneMessage.textContent = data.updated
-        ? "Product updated with professional SEO copy ✓"
-        : "New product published with title, description, SEO, variants & image ✓";
+        ? "Product updated with tags, SEO title & professional copy ✓"
+        : "New product published with tags, SEO, variants & image ✓";
     }
     if (pid && shop && els.btnOpenShopify) {
       els.btnOpenShopify.href = `https://${shop}/admin/products/${pid}`;
@@ -730,7 +742,4 @@ function goBilling(planId) {
 els.btnUpgradeStarter?.addEventListener("click", () => goBilling("starter"));
 els.btnUpgradePro?.addEventListener("click", () => goBilling("pro"));
 
-["outTitle","outSeoTitle","outSeoDesc","outTags"].forEach((id) => {
-  els[id]?.addEventListener("input", updateCharCounts);
-});
 loadMe();
