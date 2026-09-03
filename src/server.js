@@ -198,7 +198,7 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "4.2.0",
+    version: "4.3.0",
     plans: plansForClient(),
     free_limit: FREE_LIMIT,
     public_url: process.env.SHOPIFY_APP_URL || null,
@@ -293,7 +293,7 @@ function sendAppHtml(res) {
   let html = fs.readFileSync(htmlPath, "utf8");
   const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "";
   html = html.replaceAll("%%SHOPIFY_API_KEY%%", apiKey);
-  html = html.replaceAll("%%APP_VERSION%%", "4.2.0");
+  html = html.replaceAll("%%APP_VERSION%%", "4.3.0");
   res.type("html").send(html);
 }
 
@@ -825,7 +825,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v4.2.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · Starter $${PLANS.starter.price} · Pro $${PLANS.pro.price}`
+    `ListingAI SEO v4.3.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · Starter $${PLANS.starter.price} · Pro $${PLANS.pro.price}`
   );
   cycleStoredTokens();
 });
