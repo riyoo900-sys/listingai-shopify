@@ -1,4 +1,5 @@
 export const FREE_LIMIT = Number(process.env.LISTINGAI_FREE_LISTINGS || 25);
+export const TRIAL_DAYS = Number(process.env.LISTINGAI_TRIAL_DAYS || 15);
 
 export const PLANS = {
   starter: {
@@ -7,7 +8,7 @@ export const PLANS = {
     price: Number(process.env.LISTINGAI_STARTER_PRICE_USD || 4.99),
     limit: Number(process.env.LISTINGAI_STARTER_LISTINGS || 50),
     monthly: true,
-    trial_days: 7,
+    trial_days: TRIAL_DAYS,
   },
   pro: {
     id: "pro",
@@ -15,7 +16,7 @@ export const PLANS = {
     price: Number(process.env.LISTINGAI_PRICE_USD || 7.99),
     limit: null,
     monthly: false,
-    trial_days: 7,
+    trial_days: TRIAL_DAYS,
   },
 };
 
@@ -39,11 +40,15 @@ export function plansForClient() {
       price: PLANS.starter.price,
       limit: PLANS.starter.limit,
       name: PLANS.starter.name,
+      trial_days: PLANS.starter.trial_days,
     },
     pro: {
       price: PLANS.pro.price,
       limit: null,
       name: PLANS.pro.name,
+      trial_days: PLANS.pro.trial_days,
     },
+    trial_days: TRIAL_DAYS,
+    free_limit: FREE_LIMIT,
   };
 }
