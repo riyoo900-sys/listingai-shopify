@@ -218,7 +218,7 @@ function updateUsage(usage) {
   const { starter, pro } = planPrices(usage);
   const trialDays = usage.plans?.trial_days || 15;
   if (els.trialLine) {
-    els.trialLine.textContent = `${trialDays}-day free trial · cancel anytime in Shopify`;
+    els.trialLine.textContent = `Free forever: ${usage.free_limit || 25} listings/mo · Paid: ${trialDays}-day trial`;
   }
 
   if (usage.plan === "pro") {
@@ -245,8 +245,8 @@ function updateUsage(usage) {
 
   els.planBadge.textContent = "Free";
   const left = usage.remaining ?? 0;
-  const cap = usage.free_limit ?? 25;
-  els.usageLine.textContent = `${left} of ${cap} free listings left · ${trialDays}-day trial on paid plans`;
+  const cap = usage.free_limit ?? usage.plan_limit ?? 25;
+  els.usageLine.textContent = `${left} of ${cap} free listings left this month · forever free`;
   if (left <= 0) {
     els.upgradeCard.classList.remove("hidden");
     els.planStarter?.classList.remove("hidden");
