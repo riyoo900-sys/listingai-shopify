@@ -1,51 +1,4 @@
-const SYSTEM = `You are a senior Shopify merchandiser, SEO specialist, and product photographer copywriter.
-Your job: analyze the product (especially the photo) and produce ONE premium, publish-ready listing.
-
-Rules:
-- Write like a top US brand store — clear, trustworthy, no spam, no ALL CAPS hype, no fake claims.
-- Base every detail on the product name, price, and what you SEE in the photo. Never invent materials or features not visible or implied.
-- If the photo shows one item, describe that item. If it shows multiple similar items (colors/shapes), detect them as variants.
-- SEO title ≤ 60 chars, meta description ≤ 155 chars, product title ≤ 70 chars, keyword-rich but natural.
-- Description HTML: 2 short intro paragraphs + <ul> with 4-6 benefit bullets + optional specs line. Clean HTML only.
-- FAQ: 2-3 Q&A blocks for Google and AI search (AEO).
-- Tags: 8-12 relevant comma-ready strings.
-- Image alt texts: professional, descriptive, SEO-friendly (125 chars max each).
-- Tailor tone, keywords, and benefits to the merchant's store category when provided.
-- When merchant category is provided, product_type MUST match it exactly.
-
-Return ONLY valid JSON (no markdown):
-{
-  "analysis": {
-    "summary": "1-2 sentences: what this product is",
-    "visible_details": ["color", "material", "shape", "style notes from photo"],
-    "category": "Shopify product_type suggestion"
-  },
-  "options": {
-    "sizes": ["only if apparel/footwear and multiple sizes make sense — else []"],
-    "colors": ["only colors visible or clearly offered — dedupe, else []"],
-    "styles": ["only if multiple similar shapes/types in photo — else []"]
-  },
-  "listing": {
-    "title": "customer-facing product title",
-    "description_html": "full HTML description",
-    "tags": ["tag1","tag2"],
-    "seo_title": "SEO title",
-    "seo_description": "meta description with CTA",
-    "faq_html": "<h3>Question?</h3><p>Answer.</p>",
-    "product_type": "category",
-    "vendor": "brand name suggestion or Generic"
-  },
-  "images": [
-    { "alt": "main image alt", "caption": "short caption for gallery" }
-  ]
-}
-
-Options rules:
-- Put sizes ONLY when product category typically has sizes AND merchant likely sells multiple (S,M,L,XL etc).
-- Put colors ONLY when multiple distinct colors are visible OR product type clearly comes in colors.
-- Put styles for shape/type variants (e.g. round vs square, classic vs sport) when photo shows similar variants.
-- If only one color/size/style exists, return empty arrays [] — do NOT fake options.
-- Maximum 8 values per option array.`;
+const SYSTEM = "You are a senior Shopify merchandiser, SEO specialist, and product photographer copywriter.\nYour job: analyze the product (especially the photo) and produce THREE premium, publish-ready listing variations optimized for SEO and conversion.\n\nRules:\n- Write like a top US brand store ? clear, trustworthy, no spam, no ALL CAPS hype, no fake claims.\n- Base every detail on the product name, price, and what you SEE in the photo. Never invent materials or features not visible or implied.\n- If the photo shows one item, describe that item. If it shows multiple similar items (colors/shapes), detect them as variants.\n- SEO title ? 60 chars, meta description ? 155 chars, product title ? 70 chars, keyword-rich but natural.\n- Description HTML: 2 short intro paragraphs + <ul> with 4-6 benefit bullets + optional specs line. Clean HTML only.\n- FAQ: 2-3 Q&A blocks for Google and AI search (AEO).\n- Tags: 8-12 relevant comma-ready strings ? prioritize searchable product tags for Shopify navigation and SEO.\n- Image alt texts: professional, descriptive, SEO-friendly (125 chars max each).\n- Tailor tone, keywords, and benefits to the merchant's store category when provided.\n- When merchant category is provided, product_type MUST match it exactly.\n\nGenerate exactly 3 listing variations with different SEO angles:\n1) benefit-led ? outcomes and customer value first\n2) feature-led ? specs, materials, and tangible attributes first\n3) keyword-led ? search-intent phrasing and high-intent keywords first\nEach variation MUST include seo_score (0-100 integer) reflecting SEO quality (title/meta length, tags, keyword use, FAQ).\n\nReturn ONLY valid JSON (no markdown):\n{\n  \"analysis\": {\n    \"summary\": \"1-2 sentences: what this product is\",\n    \"visible_details\": [\"color\", \"material\", \"shape\", \"style notes from photo\"],\n    \"category\": \"Shopify product_type suggestion\"\n  },\n  \"options\": {\n    \"sizes\": [\"only if apparel/footwear and multiple sizes make sense ? else []\"],\n    \"colors\": [\"only colors visible or clearly offered ? dedupe, else []\"],\n    \"styles\": [\"only if multiple similar shapes/types in photo ? else []\"]\n  },\n  \"variations\": [\n    {\n      \"style\": \"benefit-led\",\n      \"seo_score\": 85,\n      \"title\": \"customer-facing product title\",\n      \"description_html\": \"full HTML description\",\n      \"tags\": [\"tag1\",\"tag2\"],\n      \"seo_title\": \"SEO title\",\n      \"seo_description\": \"meta description with CTA\",\n      \"faq_html\": \"<h3>Question?</h3><p>Answer.</p>\",\n      \"product_type\": \"category\",\n      \"vendor\": \"brand name suggestion or Generic\",\n      \"image_alt\": \"main image alt\"\n    },\n    { \"style\": \"feature-led\", \"seo_score\": 80, \"title\": \"...\", \"description_html\": \"...\", \"tags\": [], \"seo_title\": \"...\", \"seo_description\": \"...\", \"faq_html\": \"...\", \"product_type\": \"...\", \"vendor\": \"...\", \"image_alt\": \"...\" },\n    { \"style\": \"keyword-led\", \"seo_score\": 90, \"title\": \"...\", \"description_html\": \"...\", \"tags\": [], \"seo_title\": \"...\", \"seo_description\": \"...\", \"faq_html\": \"...\", \"product_type\": \"...\", \"vendor\": \"...\", \"image_alt\": \"...\" }\n  ],\n  \"images\": [\n    { \"alt\": \"main image alt\", \"caption\": \"short caption for gallery\" }\n  ]\n}\n\nOptions rules:\n- Put sizes ONLY when product category typically has sizes AND merchant likely sells multiple (S,M,L,XL etc).\n- Put colors ONLY when multiple distinct colors are visible OR product type clearly comes in colors.\n- Put styles for shape/type variants (e.g. round vs square, classic vs sport) when photo shows similar variants.\n- If only one color/size/style exists, return empty arrays [] ? do NOT fake options.\n- Maximum 8 values per option array.";
 
 /**
  * @param {{
@@ -126,7 +79,7 @@ export async function generateListing(input) {
         body: JSON.stringify({
           model,
           messages,
-          max_tokens: 3500,
+          max_tokens: 5500,
           temperature: 0.35,
           response_format: { type: "json_object" },
         }),
@@ -163,7 +116,7 @@ export async function generateListing(input) {
           body: JSON.stringify({
             model,
             messages,
-            max_tokens: 3500,
+            max_tokens: 5500,
             temperature: 0.35,
             response_format: { type: "json_object" },
           }),
@@ -210,31 +163,49 @@ function dedupeList(list) {
   return out.slice(0, 8);
 }
 
-function normalizeResult(parsed, fallbackName, merchantCategory) {
-  const listing = parsed.listing || parsed;
-  const analysis = parsed.analysis || {};
-  const options = {
-    sizes: dedupeList(parsed.options?.sizes),
-    colors: dedupeList(parsed.options?.colors),
-    styles: dedupeList(parsed.options?.styles),
-  };
 
+const STYLE_LABELS = {
+  "benefit-led": "Benefit-led",
+  "feature-led": "Feature-led",
+  "keyword-led": "Keyword-led",
+};
+
+function scoreListing(listing) {
+  let score = Number(listing?.seo_score);
+  if (Number.isFinite(score) && score >= 0) return Math.min(100, Math.round(score));
+  score = 40;
+  const title = String(listing?.title || "");
+  const seoTitle = String(listing?.seo_title || listing?.metafields_global_title_tag || "");
+  const seoDesc = String(listing?.seo_description || listing?.metafields_global_description_tag || "");
+  const tags = Array.isArray(listing?.tags)
+    ? listing.tags
+    : String(listing?.tags || "").split(",").map((t) => t.trim()).filter(Boolean);
+  const faq = String(listing?.faq_html || "");
+  if (title.length >= 20 && title.length <= 70) score += 12;
+  if (seoTitle.length >= 20 && seoTitle.length <= 60) score += 14;
+  if (seoDesc.length >= 80 && seoDesc.length <= 155) score += 14;
+  if (tags.length >= 8) score += 12;
+  else if (tags.length >= 5) score += 6;
+  if (faq.includes("<h3") || faq.includes("<H3")) score += 8;
+  if (String(listing?.description_html || listing?.body_html || "").length > 200) score += 8;
+  return Math.min(100, score);
+}
+
+function normalizeListing(raw, fallbackName, merchantCategory, analysis, imagesFallback) {
+  const listing = raw || {};
   const title = String(listing.title || fallbackName).slice(0, 255);
   const bodyHtml = String(listing.description_html || listing.body_html || "");
   const faqHtml = String(listing.faq_html || "");
   const tags = Array.isArray(listing.tags)
     ? listing.tags.map(String).slice(0, 12).join(", ")
     : String(listing.tags || "");
-
-  const images = Array.isArray(parsed.images)
-    ? parsed.images.map((img, i) => ({
-        alt: String(img.alt || title).slice(0, 125),
-        caption: String(img.caption || "").slice(0, 200),
-        role: img.role || (i === 0 ? "main" : "gallery"),
-      }))
-    : [{ alt: String(listing.image_alt || title).slice(0, 125), caption: "", role: "main" }];
-
-  const normalized = {
+  const style = String(listing.style || "benefit-led");
+  const seo_score = scoreListing(listing);
+  const image_alt = String(listing.image_alt || imagesFallback?.[0]?.alt || title).slice(0, 125);
+  return {
+    style,
+    style_label: STYLE_LABELS[style] || style,
+    seo_score,
     title,
     body_html: bodyHtml,
     tags,
@@ -245,23 +216,62 @@ function normalizeResult(parsed, fallbackName, merchantCategory) {
       listing.seo_description || listing.metafields_global_description_tag || ""
     ).slice(0, 160),
     faq_html: faqHtml,
-    image_alt: images[0]?.alt || title.slice(0, 125),
+    image_alt,
     product_type: String(
-      merchantCategory || listing.product_type || analysis.category || ""
+      merchantCategory || listing.product_type || analysis?.category || ""
     ).slice(0, 100),
     vendor: String(listing.vendor || "Souso").slice(0, 100),
   };
+}
+
+function normalizeResult(parsed, fallbackName, merchantCategory) {
+  const analysis = parsed.analysis || {};
+  const options = {
+    sizes: dedupeList(parsed.options?.sizes),
+    colors: dedupeList(parsed.options?.colors),
+    styles: dedupeList(parsed.options?.styles),
+  };
+
+  const images = Array.isArray(parsed.images)
+    ? parsed.images.map((img, i) => ({
+        alt: String(img.alt || fallbackName).slice(0, 125),
+        caption: String(img.caption || "").slice(0, 200),
+        role: img.role || (i === 0 ? "main" : "gallery"),
+      }))
+    : [{ alt: String(fallbackName).slice(0, 125), caption: "", role: "main" }];
+
+  let rawVars = Array.isArray(parsed.variations) ? parsed.variations.slice(0, 3) : [];
+  if (!rawVars.length && (parsed.listing || parsed.title)) {
+    rawVars = [parsed.listing || parsed];
+  }
+  while (rawVars.length < 3) {
+    const base = rawVars[rawVars.length - 1] || parsed.listing || parsed;
+    const styles = ["benefit-led", "feature-led", "keyword-led"];
+    rawVars.push({ ...base, style: styles[rawVars.length] || "benefit-led" });
+  }
+
+  const variations = rawVars
+    .map((v) => normalizeListing(v, fallbackName, merchantCategory, analysis, images))
+    .sort((a, b) => (b.seo_score || 0) - (a.seo_score || 0));
+
+  if (variations[0]) variations[0].best_for_seo = true;
+  variations.forEach((v, i) => {
+    v.label = i === 0 ? "Best for SEO" : (v.style_label || ("Version " + (i + 1)));
+  });
+
+  const listing = { ...variations[0] };
+  if (images[0] && listing.image_alt) images[0].alt = listing.image_alt;
 
   return {
     analysis: {
       summary: String(analysis.summary || "").slice(0, 500),
       visible_details: dedupeList(analysis.visible_details),
-      category: String(analysis.category || normalized.product_type || ""),
+      category: String(analysis.category || listing.product_type || ""),
     },
     options,
-    listing: normalized,
+    listing,
     images,
-    variations: [normalized],
+    variations,
   };
 }
 
