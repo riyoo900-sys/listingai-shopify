@@ -82,11 +82,20 @@ const els = {
   btnUpgradePro: document.getElementById("btnUpgradePro"),
   planStarter: document.getElementById("planStarter"),
   planPro: document.getElementById("planPro"),
+  variationTabs: document.getElementById("variationTabs"),
+  seoScoreBadge: document.getElementById("seoScoreBadge"),
+  seoScoreValue: document.getElementById("seoScoreValue"),
+  tagsChips: document.getElementById("tagsChips"),
+  countTitle: document.getElementById("countTitle"),
+  countSeoTitle: document.getElementById("countSeoTitle"),
+  countSeoDesc: document.getElementById("countSeoDesc"),
+  countTags: document.getElementById("countTags"),
 };
 
 let imageBase64 = "";
 let imageDataUrl = "";
 let lastResult = null;
+let activeVariationIndex = 0;
 let activeProductId = null;
 let storeCollections = [];
 
@@ -207,6 +216,9 @@ function planPrices(usage) {
 function updateUsage(usage) {
   if (!usage) return;
   const { starter, pro } = planPrices(usage);
+  const trialDays = usage?.plans?.trial_days || 15;
+  const trialEl = document.querySelector("#upgradeCard .muted");
+  if (trialEl) trialEl.textContent = trialDays + "-day free trial ? cancel anytime in Shopify";
 
   if (usage.plan === "pro") {
     els.planBadge.textContent = "Pro";
@@ -346,16 +358,111 @@ function renderAnalysis(analysis) {
   `;
 }
 
-function fillPreview(data) {
-  const listing = data.listing || {};
+
+function saveCurrentVariation() {
+  if (!lastResult) return;
+  const vars = lastResult.variations || [lastResult.listing];
+  if (!vars[activeVariationIndex]) return;
+  const cur = currentListing();
+  vars[activeVariationIndex] = {
+    ...vars[activeVariationIndex],
+    ...cur,
+    body_html: cur.body_html,
+  };
+  lastResult.variations = vars;
+  lastResult.listing = vars[activeVariationIndex];
+}
+
+function renderTagsChips(tagsStr) {
+  if (!els.tagsChips) return;
+  const tags = String(tagsStr || "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  els.tagsChips.innerHTML = tags.map((t) => '<span class="chip">' + t + "</span>").join("");
+  if (els.countTags)
+    els.countTags.textContent = tags.length + " tags ? " + String(tagsStr || "").length + " chars";
+}
+
+function updateCharCounts() {
+  if (els.countTitle) els.countTitle.textContent = (els.outTitle?.value || "").length + "/70";
+  if (els.countSeoTitle)
+    els.countSeoTitle.textContent = (els.outSeoTitle?.value || "").length + "/60";
+  if (els.countSeoDesc)
+    els.countSeoDesc.textContent = (els.outSeoDesc?.value || "").length + "/155";
+  renderTagsChips(els.outTags?.value || "");
+}
+
+function applyVariationToForm(listing) {
+  if (!listing) return;
   els.outTitle.value = listing.title || "";
-  els.outCategory.value =
-    listing.product_type || selectedCategory() || data.analysis?.category || "";
+  els.outCategory.value = listing.product_type || els.outCategory.value || "";
   els.outSeoTitle.value = listing.metafields_global_title_tag || "";
   els.outSeoDesc.value = listing.metafields_global_description_tag || "";
   els.outTags.value = listing.tags || "";
   els.outAlt.value = listing.image_alt || "";
-  els.outBody.value = [listing.body_html || "", listing.faq_html || ""].filter(Boolean).join("\n\n");
+  els.outBody.value = [listing.body_html || "", listing.faq_html || ""]
+    .filter(Boolean)
+    .join("\n\n");
+  if (els.seoScoreBadge && els.seoScoreValue) {
+    const score = listing.seo_score;
+    if (score != null) {
+      els.seoScoreBadge.classList.remove("hidden");
+      els.seoScoreValue.textContent = String(score);
+    } else {
+      els.seoScoreBadge.classList.add("hidden");
+    }
+  }
+  updateCharCounts();
+}
+
+function renderVariationTabs(variations) {
+  if (!els.variationTabs) return;
+  const vars = variations || [];
+  if (vars.length < 2) {
+    els.variationTabs.innerHTML = "";
+    return;
+  }
+  els.variationTabs.innerHTML = vars
+    .map((v, i) => {
+      const best = i === 0 || v.best_for_seo ? " ?" : "";
+      return (
+        '<button type="button" class="var-tab' +
+        (i === activeVariationIndex ? " active" : "") +
+        '" data-var="' +
+        i +
+        '">Version ' +
+        (i + 1) +
+        best +
+        "</button>"
+      );
+    })
+    .join("");
+  els.variationTabs.querySelectorAll(".var-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.var);
+      if (idx === activeVariationIndex) return;
+      saveCurrentVariation();
+      activeVariationIndex = idx;
+      const vars2 = lastResult?.variations || [];
+      applyVariationToForm(vars2[idx]);
+      lastResult.listing = vars2[idx];
+      renderVariationTabs(vars2);
+    });
+  });
+}
+
+function fillPreview(data) {
+  lastResult = data;
+  const variations =
+    Array.isArray(data.variations) && data.variations.length
+      ? data.variations
+      : [data.listing || {}];
+  lastResult.variations = variations;
+  activeVariationIndex = 0;
+  applyVariationToForm(variations[0]);
+  lastResult.listing = variations[0];
+  renderVariationTabs(variations);
   renderAnalysis(data.analysis);
   renderOptions(data.options);
 }
@@ -623,4 +730,7 @@ function goBilling(planId) {
 els.btnUpgradeStarter?.addEventListener("click", () => goBilling("starter"));
 els.btnUpgradePro?.addEventListener("click", () => goBilling("pro"));
 
+["outTitle","outSeoTitle","outSeoDesc","outTags"].forEach((id) => {
+  els[id]?.addEventListener("input", updateCharCounts);
+});
 loadMe();
