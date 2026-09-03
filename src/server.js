@@ -825,7 +825,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v4.3.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · Starter $${PLANS.starter.price} · Pro $${PLANS.pro.price}`
+    `ListingAI SEO v4.3.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · Starter $${PLANS.starter.price} · Pro $${PLANS.pro.price} · ${PLANS.pro.trial_days}d trial`
   );
   cycleStoredTokens();
 });
