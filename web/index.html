@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ListingAI SEO — Professional product listings</title>
+  <title>ListingAI SEO — AI product listings that rank</title>
   <meta name="shopify-api-key" content="%%SHOPIFY_API_KEY%%" />
   <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -18,15 +18,14 @@
 
     <section class="hero">
       <h1>AI-Powered Product Listings that Rank and Convert</h1>
-      <p class="hero-sub">SEO titles, tags, meta &amp; 3 copy variations ? optimized for Google, AI search, and Shopify.</p>
+      <p class="hero-sub">SEO titles, tags, meta &amp; 3 variations — from one photo. More visibility. More clicks. More sales.</p>
       <div class="features-strip">
-        <span class="feature-pill">Tags</span>
+        <span class="feature-pill">Tags &amp; keywords</span>
         <span class="feature-pill">SEO title &amp; meta</span>
-        <span class="feature-pill">3 variations</span>
-        <span class="feature-pill">Image alt</span>
-        <span class="feature-pill">FAQ / AEO</span>
+        <span class="feature-pill">3 AI variations</span>
+        <span class="feature-pill">Image alt + FAQ</span>
       </div>
-      <p class="usage" id="usageLine">Loading?</p>
+      <p class="usage" id="usageLine">Loading…</p>
     </section>
 
     <section class="card connect-card" id="connectCard">
@@ -49,7 +48,7 @@
     <section class="card card-main" id="stepProduct">
       <div class="field">
         <label for="productName">Product name *</label>
-        <input id="productName" type="text" placeholder="e.g. Women's linen abaya — taupe" autocomplete="off" />
+        <input id="productName" type="text" placeholder="e.g. Wireless Noise Cancelling Headphones" autocomplete="off" />
       </div>
 
       <div class="field">
@@ -115,7 +114,7 @@
       </details>
 
       <div class="actions">
-        <button type="button" class="btn primary btn-lg" id="btnCreate">Create professional listing</button>
+        <button type="button" class="btn primary btn-lg" id="btnCreate">Generate listings with AI</button>
       </div>
       <p class="err" id="error"></p>
     </section>
@@ -129,17 +128,42 @@
         <div id="optionsChips"></div>
       </div>
 
-      <h2>Preview — edit if needed</h2>
+      <div class="variation-header">
+        <h2>Listing variations</h2>
+        <div class="seo-score-badge" id="seoScoreBadge">SEO —</div>
+      </div>
+      <div class="variation-tabs" id="variationTabs"></div>
+
       <label>Category (Shopify product type)</label>
       <input id="outCategory" type="text" />
-      <label>Title</label>
-      <input id="outTitle" type="text" />
-      <label>SEO title</label>
-      <input id="outSeoTitle" type="text" />
-      <label>SEO description</label>
-      <input id="outSeoDesc" type="text" />
-      <label>Tags</label>
-      <input id="outTags" type="text" />
+
+      <div class="field-with-count">
+        <label for="outTitle">Title</label>
+        <span class="char-count" id="countTitle">0/200</span>
+      </div>
+      <input id="outTitle" type="text" maxlength="200" />
+
+      <div class="field-with-count">
+        <label for="outSeoTitle">SEO title</label>
+        <span class="char-count" id="countSeoTitle">0/70</span>
+      </div>
+      <input id="outSeoTitle" type="text" maxlength="70" />
+
+      <div class="field-with-count">
+        <label for="outSeoDesc">SEO description</label>
+        <span class="char-count" id="countSeoDesc">0/160</span>
+      </div>
+      <input id="outSeoDesc" type="text" maxlength="160" />
+
+      <div class="field-with-count">
+        <label>Tags</label>
+        <span class="char-count" id="countTags">0/15</span>
+      </div>
+      <div class="tags-field">
+        <div class="tags-chips" id="tagsChips"></div>
+        <input id="outTags" type="text" placeholder="tag1, tag2, tag3…" />
+      </div>
+
       <label>Image alt text</label>
       <input id="outAlt" type="text" />
       <label>Description + FAQ</label>
@@ -154,7 +178,7 @@
 
     <section class="card success-card hidden" id="stepDone">
       <h2>Published ✓</h2>
-      <p id="doneMessage">Your product is live in Shopify with professional copy and SEO.</p>
+      <p id="doneMessage">Your product is live in Shopify with professional copy, tags &amp; SEO.</p>
       <div class="actions">
         <a class="btn primary" id="btnOpenShopify" href="#" target="_blank" rel="noopener">Open in Shopify Admin</a>
         <button type="button" class="btn" id="btnNew">Create another product</button>
@@ -163,16 +187,16 @@
 
     <section class="card upgrade hidden" id="upgradeCard">
       <h2>Choose a plan</h2>
-      <p class="muted">7-day free trial · cancel anytime in Shopify</p>
+      <p class="muted" id="trialLine">15-day free trial · cancel anytime in Shopify</p>
       <div class="plan-grid">
         <div class="plan-option" id="planStarter">
           <h3>Starter — $4.99/mo</h3>
-          <p>50 AI listings/month ? Tags, SEO &amp; 3 variations</p>
+          <p>50 listings/mo · Tags, SEO &amp; 3 variations</p>
           <button type="button" class="btn primary" id="btnUpgradeStarter">Start Starter</button>
         </div>
         <div class="plan-option plan-option-featured" id="planPro">
           <h3>Pro — $7.99/mo</h3>
-          <p>Unlimited ? Tags, SEO, variations &amp; bulk</p>
+          <p>Unlimited · Tags, SEO, variations &amp; bulk</p>
           <button type="button" class="btn primary" id="btnUpgradePro">Start Pro</button>
         </div>
       </div>
