@@ -200,7 +200,7 @@ function healthPayload() {
   return {
     ok: true,
     app: "ListingAI SEO",
-    version: "4.3.1",
+    version: "4.4.0",
     plans: plansForClient(),
     free_limit: FREE_LIMIT,
     free_monthly: true,
@@ -296,7 +296,7 @@ function sendAppHtml(res) {
   let html = fs.readFileSync(htmlPath, "utf8");
   const apiKey = process.env.SHOPIFY_API_KEY?.trim() || "";
   html = html.replaceAll("%%SHOPIFY_API_KEY%%", apiKey);
-  html = html.replaceAll("%%APP_VERSION%%", "4.3.1");
+  html = html.replaceAll("%%APP_VERSION%%", "4.4.0");
   res.type("html").send(html);
 }
 
@@ -453,8 +453,8 @@ app.post("/api/generate", async (req, res) => {
       const usage = usagePayload(fresh);
       const msg =
         fresh?.plan === "starter"
-          ? "Starter monthly limit reached (50 listings). Upgrade to Pro for unlimited."
-          : "Free monthly limit reached. Upgrade for more, or wait until next month.";
+          ? `Starter monthly limit reached (${PLANS.starter.limit} listings). Upgrade to Pro for unlimited.`
+          : `Free monthly limit reached (${FREE_LIMIT} listings). Upgrade for more, or wait until next month.`;
       return res.status(402).json({
         error: msg,
         usage,
@@ -828,7 +828,7 @@ async function cycleStoredTokens() {
 requireEnv();
 const server = app.listen(PORT, BIND_HOST, () => {
   console.log(
-    `ListingAI SEO v4.3.1 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · Free ${FREE_LIMIT}/mo · Starter $${PLANS.starter.price} · Pro $${PLANS.pro.price}`
+    `ListingAI SEO v4.4.0 → ${process.env.SHOPIFY_APP_URL || `http://${BIND_HOST}:${PORT}`} · Free ${FREE_LIMIT}/mo · Starter $${PLANS.starter.price} · Pro $${PLANS.pro.price}`
   );
   cycleStoredTokens();
 });
