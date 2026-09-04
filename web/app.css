@@ -103,7 +103,7 @@ textarea { resize: vertical; min-height: 80px; }
 .upgrade { border-color: #3dd68c44; }
 .plan-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
   margin-top: 12px;
 }
