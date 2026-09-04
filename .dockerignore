@@ -1,7 +1,10 @@
+node_modules
 .git
 .env
 .env.*
-node_modules
-*.md
-dossier-yamshi.html
-SUBMIT.md
+!.env.example
+data
+*.png
+*.log
+_push*
+_render*
