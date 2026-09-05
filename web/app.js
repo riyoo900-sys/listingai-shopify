@@ -1,9 +1,9 @@
 const params = new URLSearchParams(location.search);
 
 const DEFAULT_PLANS = {
-  starter: { price: 4.99, limit: 100 },
+  starter: { price: 4.99, limit: 50 },
   pro: { price: 9.99, limit: null },
-  free: { price: 0, limit: 12 },
+  free: { price: 0, limit: 5 },
 };
 
 function normalizeShopClient(raw) {
@@ -218,9 +218,9 @@ function updateUsage(usage) {
   if (!usage) return;
   const { starter, pro } = planPrices(usage);
   const trialDays = usage.plans?.trial_days || 15;
-  const freeCap = usage.free_limit || usage.plans?.free?.limit || 12;
+  const freeCap = usage.free_limit || usage.plans?.free?.limit || 5;
   if (els.trialLine) {
-    els.trialLine.textContent = `Free forever: ${freeCap} listings/mo · Paid: ${trialDays}-day trial`;
+    els.trialLine.textContent = `Free forever: ${freeCap}/mo · Starter $4.99 (50) · Pro $9.99 unlimited · ${trialDays}-day trial`;
   }
   const freeCard = document.querySelector("#planFree p");
   const starterTitle = document.querySelector("#planStarter h3");
@@ -229,9 +229,19 @@ function updateUsage(usage) {
   const proBody = document.querySelector("#planPro p");
   if (freeCard) freeCard.textContent = `${freeCap} listings/mo · Full SEO quality · No card`;
   if (starterTitle) starterTitle.textContent = `Starter — $${starter.price}/mo`;
-  if (starterBody) starterBody.textContent = `${starter.limit} listings/mo · Tags, SEO & 3 variations`;
+  if (starterBody) starterBody.textContent = `${starter.limit ?? 50} listings/mo · Tags, SEO & 3 variations`;
   if (proTitle) proTitle.textContent = `Pro — $${pro.price}/mo`;
-  if (proBody) proBody.textContent = `Unlimited · Tags, SEO, variations & bulk`;
+  if (proBody) proBody.textContent = `Unlimited · Best for growing catalogs`;
+
+  // Hero pricing strip
+  const strip = document.getElementById("pricingStrip");
+  if (strip) {
+    strip.innerHTML = `
+      <span><strong>Free</strong> ${freeCap}/mo</span>
+      <span><strong>$${starter.price}</strong> ${starter.limit ?? 50}/mo</span>
+      <span><strong>$${pro.price}</strong> unlimited</span>
+    `;
+  }
 
   if (usage.plan === "pro") {
     els.planBadge.textContent = "Pro";
@@ -243,7 +253,7 @@ function updateUsage(usage) {
   if (usage.plan === "starter") {
     els.planBadge.textContent = "Starter";
     const left = usage.remaining ?? 0;
-    const cap = usage.plan_limit ?? starter.limit ?? 100;
+    const cap = usage.plan_limit ?? starter.limit ?? 50;
     els.usageLine.textContent = `${left} of ${cap} listings left this month · Starter $${starter.price}/mo`;
     if (left <= 0) {
       els.upgradeCard.classList.remove("hidden");
