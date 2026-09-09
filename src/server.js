@@ -764,15 +764,19 @@ app.get("/billing/callback", async (req, res) => {
 
 function verifyWebhook(req, res, next) {
   const secret = APP_SECRET;
-  if (!secret) return res.sendStatus(401);
+  if (!secret) {
+    console.error("[listingai] webhook rejected: missing SHOPIFY_API_SECRET");
+    return res.sendStatus(401);
+  }
   const hmac = req.get("x-shopify-hmac-sha256") || "";
   const body = Buffer.isBuffer(req.rawBody)
     ? req.rawBody
-    : Buffer.from(JSON.stringify(req.body || {}));
+    : Buffer.from(String(req.rawBody || JSON.stringify(req.body || {}) || ""), "utf8");
   const digest = crypto.createHmac("sha256", secret).update(body).digest("base64");
   const a = Buffer.from(digest);
   const b = Buffer.from(hmac);
   if (!hmac || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    console.warn("[listingai] webhook HMAC mismatch", req.get("x-shopify-topic") || "");
     return res.sendStatus(401);
   }
   next();
@@ -795,21 +799,33 @@ app.get(
 app.post("/webhooks/customers/data_request", verifyWebhook, okWebhook);
 app.post("/webhooks/customers/redact", verifyWebhook, okWebhook);
 app.post("/webhooks/compliance", verifyWebhook, (req, res) => {
-  const topic = String(req.get("x-shopify-topic") || "");
-  const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
-  if (shop && (topic === "shop/redact" || topic === "app/uninstalled")) {
-    deleteShop(shop);
+  try {
+    const topic = String(req.get("x-shopify-topic") || "");
+    const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
+    if (shop && (topic === "shop/redact" || topic === "app/uninstalled")) {
+      deleteShop(shop);
+    }
+  } catch (e) {
+    console.warn("[listingai] compliance webhook", e.message);
   }
   res.sendStatus(200);
 });
 app.post("/webhooks/shop/redact", verifyWebhook, (req, res) => {
-  const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
-  if (shop) deleteShop(shop);
+  try {
+    const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
+    if (shop) deleteShop(shop);
+  } catch (e) {
+    console.warn("[listingai] shop/redact", e.message);
+  }
   res.sendStatus(200);
 });
 app.post("/webhooks/app/uninstalled", verifyWebhook, (req, res) => {
-  const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
-  if (shop) deleteShop(shop);
+  try {
+    const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
+    if (shop) deleteShop(shop);
+  } catch (e) {
+    console.warn("[listingai] app/uninstalled", e.message);
+  }
   res.sendStatus(200);
 });
 

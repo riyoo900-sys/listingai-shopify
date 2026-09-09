@@ -33,3 +33,13 @@ services:
         value: "false"
       - key: SHOPIFY_API_SCOPES
         value: read_products,write_products
+      - key: PIXELS_APP_URL
+        value: https://listingai.yamshi.app/pixels
+      - key: PIXELS_SHOPIFY_API_KEY
+        sync: false
+      - key: PIXELS_SHOPIFY_API_SECRET
+        sync: false
+      - key: PIXELS_SHOPIFY_API_SCOPES
+        value: read_orders,write_script_tags,read_script_tags,read_customers
+      - key: PIXELS_BILLING_TEST
+        value: "false"

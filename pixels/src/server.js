@@ -50,12 +50,15 @@ function pixelsApiKey() {
   return process.env.SHOPIFY_API_KEY?.trim() || "";
 }
 
-const APP_SECRET = process.env.PIXELS_APP_URL?.trim()
-  ? process.env.PIXELS_SHOPIFY_API_SECRET?.trim() || ""
-  : process.env.PIXELS_SHOPIFY_API_SECRET?.trim() ||
-    process.env.SHOPIFY_API_SECRET?.trim() ||
-    process.env.SHOPIFY_SECRET?.trim() ||
-    "";
+// Prefer Pixels app secret whenever Pixels credentials exist.
+// Never verify Pixels webhooks with ListingAI's SHOPIFY_API_SECRET (causes 401 → Shopify failure rate).
+const APP_SECRET = process.env.PIXELS_SHOPIFY_API_SECRET?.trim() ||
+  (!process.env.PIXELS_SHOPIFY_API_KEY?.trim()
+    ? process.env.SHOPIFY_API_SECRET?.trim() || process.env.SHOPIFY_SECRET?.trim() || ""
+    : "");
+if (process.env.PIXELS_SHOPIFY_API_KEY?.trim() && !APP_SECRET) {
+  console.error("[pixels] PIXELS_SHOPIFY_API_SECRET missing — webhooks will return 401");
+}
 
 app.use(compression());
 app.use(
@@ -327,51 +330,83 @@ app.get("/billing/callback", async (req, res) => {
 });
 
 function verifyWebhook(req, res, next) {
-  if (!APP_SECRET) return res.sendStatus(401);
+  if (!APP_SECRET) {
+    console.error("[pixels] webhook rejected: missing APP_SECRET");
+    return res.sendStatus(401);
+  }
   const hmac = req.get("x-shopify-hmac-sha256") || "";
-  const body = Buffer.isBuffer(req.rawBody) ? req.rawBody : Buffer.from(JSON.stringify(req.body || {}));
+  const body = Buffer.isBuffer(req.rawBody)
+    ? req.rawBody
+    : Buffer.from(String(req.rawBody || JSON.stringify(req.body || {}) || ""), "utf8");
   const digest = crypto.createHmac("sha256", APP_SECRET).update(body).digest("base64");
   const a = Buffer.from(digest);
   const b = Buffer.from(hmac);
-  if (!hmac || a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.sendStatus(401);
+  if (!hmac || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    console.warn("[pixels] webhook HMAC mismatch", req.get("x-shopify-topic") || "");
+    return res.sendStatus(401);
+  }
   next();
 }
 
+// Health probes (Shopify / uptime) — must not 404
+app.get(
+  [
+    "/webhooks/app/uninstalled",
+    "/webhooks/orders/paid",
+    "/webhooks/customers/data_request",
+    "/webhooks/customers/redact",
+    "/webhooks/shop/redact",
+  ],
+  (_req, res) => res.status(200).send("ok")
+);
+
 app.post("/webhooks/orders/paid", verifyWebhook, async (req, res) => {
-  const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
-  const order = req.body || {};
-  const pixels = listPixels(shop).filter((p) => p.enabled && p.capi_token);
-  const email = order.email || order.customer?.email;
-  const phone = order.phone || order.billing_address?.phone;
-  const value = order.total_price;
-  const currency = order.currency;
-  const eventId = String(order.id || "") + "-purchase";
-  const sourceUrl = order.order_status_url || order.landing_site;
-  await Promise.all(
-    pixels.map((p) =>
-      sendCapi(p, "Purchase", {
-        value,
-        currency,
-        eventId,
-        email,
-        phone,
-        sourceUrl,
-      }).catch((e) => console.warn("capi", e.message))
-    )
-  );
-  bumpEvents(shop);
+  try {
+    const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
+    const order = req.body || {};
+    const pixels = listPixels(shop).filter((p) => p.enabled && p.capi_token);
+    const email = order.email || order.customer?.email;
+    const phone = order.phone || order.billing_address?.phone;
+    const value = order.total_price;
+    const currency = order.currency;
+    const eventId = String(order.id || "") + "-purchase";
+    const sourceUrl = order.order_status_url || order.landing_site;
+    await Promise.all(
+      pixels.map((p) =>
+        sendCapi(p, "Purchase", {
+          value,
+          currency,
+          eventId,
+          email,
+          phone,
+          sourceUrl,
+        }).catch((e) => console.warn("capi", e.message))
+      )
+    );
+    if (shop) bumpEvents(shop);
+  } catch (e) {
+    console.warn("[pixels] orders/paid handler", e.message);
+  }
   res.sendStatus(200);
 });
 app.post("/webhooks/app/uninstalled", verifyWebhook, (req, res) => {
-  const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
-  if (shop) deleteShop(shop);
+  try {
+    const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
+    if (shop) deleteShop(shop);
+  } catch (e) {
+    console.warn("[pixels] app/uninstalled", e.message);
+  }
   res.sendStatus(200);
 });
 app.post("/webhooks/customers/data_request", verifyWebhook, (_req, res) => res.sendStatus(200));
 app.post("/webhooks/customers/redact", verifyWebhook, (_req, res) => res.sendStatus(200));
 app.post("/webhooks/shop/redact", verifyWebhook, (req, res) => {
-  const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
-  if (shop) deleteShop(shop);
+  try {
+    const shop = normalizeShop(req.get("x-shopify-shop-domain") || "");
+    if (shop) deleteShop(shop);
+  } catch (e) {
+    console.warn("[pixels] shop/redact", e.message);
+  }
   res.sendStatus(200);
 });
 
